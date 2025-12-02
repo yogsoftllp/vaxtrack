@@ -19,6 +19,7 @@ model User {
   role  String     @default("parent") // parent, clinic, admin
   country String?
   city  String?
+  successfulReferrals Int @default(0)
   notificationPreferences Json @default("{\"sms\": true, \"push\": true, \"email\": true, \"reminderDays\": [7, 3, 1]}")
   
   children Child[]

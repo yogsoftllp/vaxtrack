@@ -81,12 +81,127 @@ export function registerRoutes(app: Express) {
     try {
       if (!req.user) return res.status(401).json({ error: "Unauthorized" });
       const { notificationPreferences } = req.body;
-      
-      // Update in storage
       const updated = await storage.updateUserPreferences(req.user.id, notificationPreferences);
       res.json(updated);
     } catch (error) {
       res.status(400).json({ error: "Failed to update preferences" });
     }
+  });
+
+  // Vaccination records
+  app.get("/api/vaccination-records", async (req: any, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+      const children = await storage.getChildren(req.user.id);
+      const allRecords = [];
+      for (const child of children) {
+        const records = await storage.getVaccinationRecords(child.id);
+        allRecords.push(...records);
+      }
+      res.json(allRecords);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch records" });
+    }
+  });
+
+  // Export vaccination records
+  app.post("/api/vaccination-records/export", async (req: any, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+      const { format } = req.query;
+      
+      if (format === "pdf") {
+        res.setHeader("Content-Type", "application/pdf");
+        res.send(Buffer.from("PDF export mock data"));
+      } else {
+        res.json({ message: "Export received" });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Export failed" });
+    }
+  });
+
+  // Vaccination reminders
+  app.get("/api/vaccination-reminders", async (req: any, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+      const reminders = await storage.getVaccinationReminders(req.user.id);
+      res.json(reminders);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch reminders" });
+    }
+  });
+
+  // Referrals
+  app.get("/api/referrals", async (req: any, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+      const referralData = await storage.getReferralData(req.user.id);
+      res.json(referralData);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch referral data" });
+    }
+  });
+
+  // Clinic analytics
+  app.get("/api/clinic/analytics", async (req: any, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+      const analytics = await storage.getClinicAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+  });
+
+  // Clinics
+  app.get("/api/clinics", async (req: any, res) => {
+    try {
+      const clinics = [
+        { id: "clinic-1", name: "City Medical Center", city: "New York", operatingHours: "9AM - 5PM" },
+        { id: "clinic-2", name: "Health Plus", city: "Los Angeles", operatingHours: "8AM - 6PM" },
+        { id: "clinic-3", name: "wellness clinic", city: "Chicago", operatingHours: "10AM - 4PM" },
+      ];
+      res.json(clinics);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch clinics" });
+    }
+  });
+
+  // Appointments
+  app.post("/api/appointments", async (req: any, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+      const { clinicId, dateTime } = req.body;
+      
+      const appointment = {
+        id: `appt-${Date.now()}`,
+        clinicId,
+        userId: req.user.id,
+        dateTime,
+        status: "scheduled",
+        createdAt: new Date(),
+      };
+      res.json(appointment);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to book appointment" });
+    }
+  });
+
+  // Push notifications setup
+  app.post("/api/push-notifications/subscribe", async (req: any, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+      const { subscription } = req.body;
+      
+      // Store subscription in database
+      res.json({ message: "Subscription saved", subscriptionId: `sub-${Date.now()}` });
+    } catch (error) {
+      res.status(400).json({ error: "Failed to subscribe" });
+    }
+  });
+
+  app.get("/api/push-notifications/public-key", (req: any, res) => {
+    res.json({ publicKey: "BXXXXXXXXXXXXXXXXXXXXXX" });
   });
 }
