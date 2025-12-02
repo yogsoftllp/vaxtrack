@@ -938,5 +938,44 @@ export async function registerRoutes(
     }
   });
 
+  // Clinic Reports
+  app.get('/api/clinic/reports/:clinicId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { clinicId } = req.params;
+      const days = parseInt(req.query.days || "30");
+      
+      const clinic = await storage.getClinicForUser(userId);
+      if (!clinic || clinic.id !== clinicId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      const report = await storage.getClinicReport(clinicId, days);
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+      res.status(500).json({ message: "Failed to fetch reports" });
+    }
+  });
+
+  app.post('/api/clinic/analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const clinic = await storage.getClinicForUser(userId);
+      if (!clinic) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      const analytics = await storage.recordClinicAnalytics({
+        clinicId: clinic.id,
+        ...req.body,
+      });
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error recording analytics:", error);
+      res.status(500).json({ message: "Failed to record analytics" });
+    }
+  });
+
   return httpServer;
 }

@@ -340,6 +340,22 @@ export const smsProviderConfig = pgTable("sms_provider_config", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Clinic analytics and reports
+export const clinicAnalytics = pgTable("clinic_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicId: varchar("clinic_id").notNull().references(() => clinics.id, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  totalAppointments: integer("total_appointments").default(0),
+  completedAppointments: integer("completed_appointments").default(0),
+  cancelledAppointments: integer("cancelled_appointments").default(0),
+  totalVaccinations: integer("total_vaccinations").default(0),
+  totalPatients: integer("total_patients").default(0),
+  newPatients: integer("new_patients").default(0),
+  adImpressions: integer("ad_impressions").default(0),
+  adClicks: integer("ad_clicks").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   children: many(children),
@@ -456,6 +472,11 @@ export const insertSmsProviderConfigSchema = createInsertSchema(smsProviderConfi
   updatedAt: true,
 });
 
+export const insertClinicAnalyticsSchema = createInsertSchema(clinicAnalytics).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
@@ -495,6 +516,8 @@ export type PhoneOtp = typeof phoneOtps.$inferSelect;
 export type InsertPhoneOtp = z.infer<typeof insertPhoneOtpSchema>;
 export type SmsProviderConfig = typeof smsProviderConfig.$inferSelect;
 export type InsertSmsProviderConfig = z.infer<typeof insertSmsProviderConfigSchema>;
+export type ClinicAnalytics = typeof clinicAnalytics.$inferSelect;
+export type InsertClinicAnalytics = z.infer<typeof insertClinicAnalyticsSchema>;
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;

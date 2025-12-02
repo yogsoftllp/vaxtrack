@@ -17,6 +17,7 @@ import {
   referrals,
   phoneOtps,
   smsProviderConfig,
+  clinicAnalytics,
   type User,
   type UpsertUser,
   type Child,
@@ -53,6 +54,8 @@ import {
   type InsertPhoneOtp,
   type SmsProviderConfig,
   type InsertSmsProviderConfig,
+  type ClinicAnalytics,
+  type InsertClinicAnalytics,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql, isNull, or, lt } from "drizzle-orm";
@@ -158,6 +161,10 @@ export interface IStorage {
   // SMS provider config
   getSmsConfig(): Promise<SmsProviderConfig | undefined>;
   updateSmsConfig(config: InsertSmsProviderConfig): Promise<SmsProviderConfig>;
+  
+  // Clinic reports
+  getClinicReport(clinicId: string, days: number): Promise<any>;
+  recordClinicAnalytics(data: InsertClinicAnalytics): Promise<ClinicAnalytics>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1137,6 +1144,48 @@ export class DatabaseStorage implements IStorage {
       .values(config as any)
       .returning();
     return newConfig;
+  }
+
+  async getClinicReport(clinicId: string, days: number = 30): Promise<any> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const analytics = await db
+      .select()
+      .from(clinicAnalytics)
+      .where(and(eq(clinicAnalytics.clinicId, clinicId), gte(clinicAnalytics.date, startDate.toISOString().split('T')[0])))
+      .orderBy(desc(clinicAnalytics.date));
+
+    const totalStats = {
+      totalAppointments: analytics.reduce((sum, a) => sum + (a.totalAppointments || 0), 0),
+      completedAppointments: analytics.reduce((sum, a) => sum + (a.completedAppointments || 0), 0),
+      cancelledAppointments: analytics.reduce((sum, a) => sum + (a.cancelledAppointments || 0), 0),
+      totalVaccinations: analytics.reduce((sum, a) => sum + (a.totalVaccinations || 0), 0),
+      totalPatients: analytics[0]?.totalPatients || 0,
+      newPatients: analytics.reduce((sum, a) => sum + (a.newPatients || 0), 0),
+      adImpressions: analytics.reduce((sum, a) => sum + (a.adImpressions || 0), 0),
+      adClicks: analytics.reduce((sum, a) => sum + (a.adClicks || 0), 0),
+    };
+
+    return {
+      period: `Last ${days} days`,
+      ...totalStats,
+      trend: analytics,
+      conversionRate: totalStats.totalAppointments > 0 
+        ? ((totalStats.completedAppointments / totalStats.totalAppointments) * 100).toFixed(1)
+        : 0,
+      ctaRate: totalStats.adImpressions > 0
+        ? ((totalStats.adClicks / totalStats.adImpressions) * 100).toFixed(1)
+        : 0,
+    };
+  }
+
+  async recordClinicAnalytics(data: InsertClinicAnalytics): Promise<ClinicAnalytics> {
+    const [analytics] = await db
+      .insert(clinicAnalytics)
+      .values(data as any)
+      .returning();
+    return analytics;
   }
 }
 
