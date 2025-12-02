@@ -312,23 +312,6 @@ export default function LandingMobile() {
       {/* Footer - Mobile Simple */}
       <footer className="px-4 py-8 max-w-md mx-auto sm:max-w-2xl w-full border-t border-slate-200/50 dark:border-slate-800/50">
         <div className="text-center text-sm text-slate-600 dark:text-slate-400 space-y-3">
-          <div className="flex justify-center gap-4">
-            <Link href="/privacy">
-              <button className="hover:text-slate-900 dark:hover:text-white" data-testid="link-privacy">
-                Privacy
-              </button>
-            </Link>
-            <Link href="/terms">
-              <button className="hover:text-slate-900 dark:hover:text-white" data-testid="link-terms">
-                Terms
-              </button>
-            </Link>
-            <Link href="/contact">
-              <button className="hover:text-slate-900 dark:hover:text-white" data-testid="link-contact">
-                Contact
-              </button>
-            </Link>
-          </div>
           <p>© 2024 VaxTrack. Built for families everywhere.</p>
         </div>
       </footer>
