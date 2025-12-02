@@ -127,6 +127,14 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Promoted Clinics */}
+      <div>
+        <h2 className="text-lg font-semibold text-foreground mb-4" data-testid="heading-promoted-clinics">
+          Featured Clinics in Your Area
+        </h2>
+        <ClinicAds />
+      </div>
+
       {/* Main Content Grid */}
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Children Section */}
