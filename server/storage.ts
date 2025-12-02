@@ -14,6 +14,7 @@ import {
   landingPageBranding,
   vaccinePricing,
   clinicAdvertisements,
+  referrals,
   type User,
   type UpsertUser,
   type Child,
@@ -44,6 +45,8 @@ import {
   type InsertAppointmentSlot,
   type ClinicAdvertisement,
   type InsertClinicAdvertisement,
+  type Referral,
+  type InsertReferral,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql, isNull, or, lt } from "drizzle-orm";
@@ -130,6 +133,12 @@ export interface IStorage {
   createClinicAd(ad: InsertClinicAdvertisement): Promise<ClinicAdvertisement>;
   trackAdImpression(adId: string): Promise<void>;
   trackAdClick(adId: string): Promise<void>;
+  
+  // Referral system
+  generateReferralCode(userId: string): Promise<string>;
+  getReferralStats(userId: string): Promise<{ code: string; count: number; status: string }>;
+  signUpWithReferral(referralCode: string, newUserId: string): Promise<Referral>;
+  completeReferral(referralCode: string, newUserId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -942,6 +951,93 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date(),
         })
         .where(eq(clinicAdvertisements.id, adId));
+    }
+  }
+
+  // Referral system
+  async generateReferralCode(userId: string): Promise<string> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+    
+    if (user.referralCode) return user.referralCode;
+    
+    const code = `REF-${userId.substring(0, 8).toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    
+    await db
+      .update(users)
+      .set({ referralCode: code })
+      .where(eq(users.id, userId));
+    
+    return code;
+  }
+
+  async getReferralStats(userId: string): Promise<{ code: string; count: number; status: string }> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+    
+    const code = user.referralCode || (await this.generateReferralCode(userId));
+    const count = user.successfulReferrals || 0;
+    const status = count >= 5 ? "eligible" : "pending";
+    
+    return { code, count, status };
+  }
+
+  async signUpWithReferral(referralCode: string, newUserId: string): Promise<Referral> {
+    const referrer = await db
+      .select()
+      .from(users)
+      .where(eq(users.referralCode, referralCode))
+      .limit(1);
+    
+    if (!referrer || referrer.length === 0) throw new Error("Invalid referral code");
+    
+    const [referral] = await db
+      .insert(referrals)
+      .values({
+        referrerId: referrer[0].id,
+        referredUserId: newUserId,
+        status: "pending",
+      } as any)
+      .returning();
+    
+    return referral;
+  }
+
+  async completeReferral(referralCode: string, newUserId: string): Promise<void> {
+    const referrer = await db
+      .select()
+      .from(users)
+      .where(eq(users.referralCode, referralCode))
+      .limit(1);
+    
+    if (!referrer || referrer.length === 0) throw new Error("Invalid referral code");
+    
+    const referrerId = referrer[0].id;
+    
+    // Mark referral as completed
+    await db
+      .update(referrals)
+      .set({ status: "completed", completedAt: new Date() })
+      .where(and(
+        eq(referrals.referrerId, referrerId),
+        eq(referrals.referredUserId, newUserId)
+      ));
+    
+    // Increment successful referrals count
+    const currentCount = referrer[0].successfulReferrals || 0;
+    const newCount = currentCount + 1;
+    
+    await db
+      .update(users)
+      .set({ successfulReferrals: newCount })
+      .where(eq(users.id, referrerId));
+    
+    // Award upgrade if 5+ referrals
+    if (newCount >= 5) {
+      await db
+        .update(users)
+        .set({ subscriptionTier: "family" })
+        .where(eq(users.id, referrerId));
     }
   }
 }

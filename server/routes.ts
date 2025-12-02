@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { notificationService } from "./notificationService";
 import { getScheduleForCountry } from "@shared/vaccinationData";
-import { insertChildSchema, insertVaccinationRecordSchema, pushSubscriptions, insertLandingPageBrandingSchema, clinics, insertAppointmentSlotSchema, insertAppointmentSchema, insertClinicAdvertisementSchema } from "@shared/schema";
+import { insertChildSchema, insertVaccinationRecordSchema, pushSubscriptions, insertLandingPageBrandingSchema, clinics, insertAppointmentSlotSchema, insertAppointmentSchema, insertClinicAdvertisementSchema, insertReferralSchema } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -776,6 +776,41 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error creating ad:", error);
       res.status(500).json({ message: "Failed to create ad" });
+    }
+  });
+
+  // Referral system
+  app.get('/api/user/referral-stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stats = await storage.getReferralStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching referral stats:", error);
+      res.status(500).json({ message: "Failed to fetch referral stats" });
+    }
+  });
+
+  app.post('/api/user/claim-referral-reward', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stats = await storage.getReferralStats(userId);
+      
+      if (stats.count < 5) {
+        return res.status(400).json({ message: "Not enough referrals (need 5)" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (user?.subscriptionTier === "family") {
+        return res.status(400).json({ message: "Already upgraded to family plan" });
+      }
+      
+      await db.update(users).set({ subscriptionTier: "family" }).where(eq(users.id, userId));
+      const updated = await storage.getUser(userId);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error claiming reward:", error);
+      res.status(500).json({ message: "Failed to claim reward" });
     }
   });
 

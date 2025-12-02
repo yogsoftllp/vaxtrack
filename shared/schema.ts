@@ -33,6 +33,9 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role", { enum: ["parent", "clinic", "admin", "superadmin"] }).default("parent").notNull(),
   subscriptionTier: varchar("subscription_tier", { enum: ["free", "family", "clinic"] }).default("free").notNull(),
+  referralCode: varchar("referral_code").unique(),
+  referredById: varchar("referred_by_id").references(() => users.id, { onDelete: "set null" }),
+  successfulReferrals: integer("successful_referrals").default(0),
   country: varchar("country"),
   city: varchar("city"),
   phone: varchar("phone"),
@@ -297,6 +300,16 @@ export const clinicAdvertisements = pgTable("clinic_advertisements", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Referral tracking table
+export const referrals = pgTable("referrals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  referrerId: varchar("referrer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  referredUserId: varchar("referred_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: varchar("status", { enum: ["pending", "completed"] }).default("pending").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   children: many(children),
@@ -397,6 +410,12 @@ export const insertClinicAdvertisementSchema = createInsertSchema(clinicAdvertis
   clicks: true,
 });
 
+export const insertReferralSchema = createInsertSchema(referrals).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
@@ -430,6 +449,8 @@ export type InsertAppointmentSlot = z.infer<typeof insertAppointmentSlotSchema>;
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 export type ClinicAdvertisement = typeof clinicAdvertisements.$inferSelect;
 export type InsertClinicAdvertisement = z.infer<typeof insertClinicAdvertisementSchema>;
+export type Referral = typeof referrals.$inferSelect;
+export type InsertReferral = z.infer<typeof insertReferralSchema>;
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;

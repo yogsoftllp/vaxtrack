@@ -7,6 +7,7 @@ import { StatCard } from "@/components/stat-card";
 import { ChildCard } from "@/components/child-card";
 import { VaccinationCard } from "@/components/vaccination-card";
 import { ClinicAds } from "@/components/clinic-ads";
+import { ReferralCard } from "@/components/referral-card";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   Users, 
@@ -126,6 +127,9 @@ export default function Dashboard() {
           </>
         )}
       </div>
+
+      {/* Referral Section */}
+      <ReferralCard />
 
       {/* Promoted Clinics */}
       <div>
