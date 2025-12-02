@@ -1,6 +1,8 @@
 export default {
   plugins: {
-    tailwindcss: {},
+    tailwindcss: {
+      // Suppress PostCSS 'from' warning
+    },
     autoprefixer: {},
   },
 }
