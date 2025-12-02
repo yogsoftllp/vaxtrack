@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { notificationService } from "./notificationService";
+import { sendSmsOtp, sendWhatsAppOtp } from "./twilioService";
 import { getScheduleForCountry } from "@shared/vaccinationData";
 import { insertChildSchema, insertVaccinationRecordSchema, pushSubscriptions, insertLandingPageBrandingSchema, clinics, insertAppointmentSlotSchema, insertAppointmentSchema, insertClinicAdvertisementSchema, insertReferralSchema } from "@shared/schema";
 import { db } from "./db";
@@ -821,7 +822,18 @@ export async function registerRoutes(
       if (!phone) return res.status(400).json({ message: "Phone required" });
       
       const { otp } = await storage.generateOtp(phone);
-      console.log(`[${method.toUpperCase()}] OTP ${otp} sent to ${phone}`);
+      
+      let sent = false;
+      if (method === "whatsapp") {
+        sent = await sendWhatsAppOtp(phone, otp);
+      } else {
+        sent = await sendSmsOtp(phone, otp);
+      }
+      
+      if (!sent) {
+        return res.status(500).json({ message: "Failed to send OTP" });
+      }
+      
       res.json({ message: "OTP sent", expiresIn: 600 });
     } catch (error) {
       console.error("Error sending OTP:", error);

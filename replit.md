@@ -162,3 +162,60 @@ Preferred communication style: Simple, everyday language.
 - Production build bundles allowed server dependencies to reduce cold start times
 - Static assets served from `dist/public`
 - Environment-based configuration (NODE_ENV)
+
+## Recent Features (Current Session)
+
+### Quick Authentication System
+- **Multi-method login**: Gmail OAuth (via Replit Auth), SMS OTP, WhatsApp OTP
+- **Frontend**: QuickAuth component with tabbed interface for method selection
+- **Backend OTP flow**: Generate 6-digit code → send via SMS/WhatsApp → verify and auto-create user
+- **Database**: phoneOtps table tracks OTP with 10-minute expiry
+- **Location in code**: 
+  - Frontend: `client/src/components/quick-auth.tsx`
+  - Backend: `server/routes.ts` (/api/auth/send-otp, /api/auth/verify-otp)
+  - Service: `server/twilioService.ts`
+
+### Clinic Verification Workflow
+- **Manual approval system**: Clinics sign up pending admin verification
+- **Admin dashboard**: `client/src/pages/admin-clinic-verification.tsx`
+- **Database fields**: clinicVerificationStatus (pending/approved/rejected), clinicVerificationNotes, clinicVerifiedBy, clinicVerifiedAt
+- **APIs**:
+  - GET `/api/admin/pending-clinic-verifications` - List pending clinics
+  - POST `/api/admin/verify-clinic` - Approve/reject with notes
+- **User fields**: authProvider tracks login method (google/phone/whatsapp/replit)
+
+### Twilio Integration Status
+**PENDING USER SETUP**: User dismissed Twilio connector integration
+- System gracefully handles missing credentials (logs OTP to console in demo mode)
+- When ready, configure via Replit integrations or set env vars:
+  - TWILIO_ACCOUNT_SID
+  - TWILIO_AUTH_TOKEN
+  - TWILIO_PHONE_NUMBER (for SMS)
+  - TWILIO_WHATSAPP_NUMBER (for WhatsApp)
+- Implementation ready in `server/twilioService.ts` with functions:
+  - sendSmsOtp(phone, otp)
+  - sendWhatsAppOtp(phone, otp)
+
+### Referral System (Completed Earlier)
+- Parents get unique referral codes on dashboard
+- 5 successful referrals = automatic Family Plan upgrade
+- Frontend: `client/src/components/referral-card.tsx`
+- APIs: `/api/user/referral-stats`, `/api/user/claim-referral-reward`
+
+### AI Clinic Advertisements (Completed Earlier)
+- Free-plan clinics can create location-targeted ads
+- Appear on parent dashboard with impression/click tracking
+- Component: `client/src/components/clinic-ads.tsx`
+
+## Testing Features
+- SMS/WhatsApp OTP: Currently logs code to console (demo mode)
+- For actual SMS/WhatsApp: Complete Twilio integration setup
+- Clinic verification: Admin approves/rejects from dashboard
+- Referral codes: Copy from referral card, share with friends
+
+## Production Readiness
+- ✅ All TypeScript errors resolved
+- ✅ Database migrations applied
+- ✅ Zero build errors
+- ✅ App running on port 5000
+- ⏳ Twilio SMS/WhatsApp (waiting for user to set up integration)
