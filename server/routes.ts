@@ -4,8 +4,9 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { notificationService } from "./notificationService";
 import { getScheduleForCountry } from "@shared/vaccinationData";
-import { insertChildSchema, insertVaccinationRecordSchema, pushSubscriptions, insertLandingPageBrandingSchema } from "@shared/schema";
+import { insertChildSchema, insertVaccinationRecordSchema, pushSubscriptions, insertLandingPageBrandingSchema, clinics } from "@shared/schema";
 import { db } from "./db";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -382,7 +383,7 @@ export async function registerRoutes(
       const subscription = await db.insert(pushSubscriptions).values({
         userId,
         endpoint,
-        keys: JSON.stringify(keys),
+        keys: keys as any,
       }).returning();
 
       res.json({ success: true, subscription: subscription[0] });

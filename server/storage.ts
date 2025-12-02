@@ -319,7 +319,7 @@ export class DatabaseStorage implements IStorage {
       .from(appointments)
       .where(eq(appointments.clinicId, clinicId));
 
-    const childIds = [...new Set(clinicAppointments.map(a => a.childId))];
+    const childIds = Array.from(new Set(clinicAppointments.map(a => a.childId)));
     if (childIds.length === 0) return [];
 
     const patientData: any[] = [];
@@ -585,7 +585,7 @@ export class DatabaseStorage implements IStorage {
     } else {
       const [created] = await db
         .insert(clinicBranding)
-        .values({ clinicId, ...branding })
+        .values({ ...branding, clinicId } as any)
         .returning();
       return created;
     }
@@ -680,7 +680,7 @@ export class DatabaseStorage implements IStorage {
   async addUserToClinic(userId: string, clinicId: string, role: string = "admin"): Promise<UserClinicAssociation> {
     const [assoc] = await db
       .insert(userClinicAssociation)
-      .values({ userId, clinicId, role })
+      .values({ userId, clinicId, role } as any)
       .returning();
     return assoc;
   }
