@@ -1,4 +1,5 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
+import { Suspense, lazy } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -10,28 +11,41 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useAuth } from "@/hooks/useAuth";
+
+// Keep critical pages in main bundle
 import NotFound from "@/pages/not-found";
-import Landing from "@/pages/landing";
 import LandingMobile from "@/pages/landing-mobile";
-import Pricing from "@/pages/pricing";
-import Dashboard from "@/pages/dashboard";
-import Children from "@/pages/children";
-import AddChild from "@/pages/add-child";
-import ChildDetail from "@/pages/child-detail";
-import Schedule from "@/pages/schedule";
-import Notifications from "@/pages/notifications";
-import Settings from "@/pages/settings";
-import ClinicDashboard from "@/pages/clinic-dashboard";
-import AdminSettings from "@/pages/admin-settings";
-import ClinicBranding from "@/pages/clinic-branding";
 import ClinicLogin from "@/pages/clinic-login";
-import LandingCustomization from "@/pages/landing-customization";
-import DomainClinicLogin from "@/pages/domain-clinic-login";
-import AIDashboard from "@/pages/ai-dashboard";
-import BookAppointment from "@/pages/book-appointment";
-import ClinicAnalytics from "@/pages/clinic-analytics";
-import AppointmentBooking from "@/pages/appointment-booking";
-import PushNotificationsSetup from "@/pages/push-notifications-setup";
+
+// Lazy load secondary pages to reduce main bundle
+const Landing = lazy(() => import("@/pages/landing"));
+const Pricing = lazy(() => import("@/pages/pricing"));
+const Dashboard = lazy(() => import("@/pages/dashboard"));
+const Children = lazy(() => import("@/pages/children"));
+const AddChild = lazy(() => import("@/pages/add-child"));
+const ChildDetail = lazy(() => import("@/pages/child-detail"));
+const Schedule = lazy(() => import("@/pages/schedule"));
+const Notifications = lazy(() => import("@/pages/notifications"));
+const Settings = lazy(() => import("@/pages/settings"));
+const ClinicDashboard = lazy(() => import("@/pages/clinic-dashboard"));
+const AdminSettings = lazy(() => import("@/pages/admin-settings"));
+const ClinicBranding = lazy(() => import("@/pages/clinic-branding"));
+const LandingCustomization = lazy(() => import("@/pages/landing-customization"));
+const DomainClinicLogin = lazy(() => import("@/pages/domain-clinic-login"));
+const AIDashboard = lazy(() => import("@/pages/ai-dashboard"));
+const BookAppointment = lazy(() => import("@/pages/book-appointment"));
+const ClinicAnalytics = lazy(() => import("@/pages/clinic-analytics"));
+const AppointmentBooking = lazy(() => import("@/pages/appointment-booking"));
+const PushNotificationsSetup = lazy(() => import("@/pages/push-notifications-setup"));
+
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-muted-foreground">Loading...</p>
+    </div>
+  </div>
+);
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
