@@ -1,18 +1,267 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { sql, relations } from "drizzle-orm";
+import {
+  pgTable,
+  text,
+  varchar,
+  timestamp,
+  boolean,
+  integer,
+  jsonb,
+  index,
+  date,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Session storage table - Required for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)]
+);
+
+// Users table - Required for Replit Auth
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  role: varchar("role", { enum: ["parent", "clinic", "admin"] }).default("parent").notNull(),
+  subscriptionTier: varchar("subscription_tier", { enum: ["free", "family", "clinic"] }).default("free").notNull(),
+  country: varchar("country"),
+  city: varchar("city"),
+  phone: varchar("phone"),
+  notificationPreferences: jsonb("notification_preferences").$type<{
+    sms: boolean;
+    push: boolean;
+    email: boolean;
+    reminderDays: number[];
+  }>().default({ sms: true, push: true, email: true, reminderDays: [7, 3, 1] }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+// Children table
+export const children = pgTable("children", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  firstName: varchar("first_name").notNull(),
+  lastName: varchar("last_name"),
+  dateOfBirth: date("date_of_birth").notNull(),
+  gender: varchar("gender", { enum: ["male", "female", "other"] }),
+  country: varchar("country").notNull(),
+  city: varchar("city"),
+  bloodType: varchar("blood_type"),
+  allergies: text("allergies"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
+// Vaccination schedules by country (reference data)
+export const vaccinationSchedules = pgTable("vaccination_schedules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  country: varchar("country").notNull(),
+  vaccineName: varchar("vaccine_name").notNull(),
+  vaccineCode: varchar("vaccine_code").notNull(),
+  doseNumber: integer("dose_number").notNull(),
+  ageInDays: integer("age_in_days").notNull(),
+  ageDescription: varchar("age_description").notNull(),
+  mandatory: boolean("mandatory").default(true),
+  description: text("description"),
+  sideEffects: text("side_effects"),
+});
+
+// Child vaccination records
+export const vaccinationRecords = pgTable("vaccination_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  childId: varchar("child_id").notNull().references(() => children.id, { onDelete: "cascade" }),
+  scheduleId: varchar("schedule_id").references(() => vaccinationSchedules.id),
+  vaccineName: varchar("vaccine_name").notNull(),
+  vaccineCode: varchar("vaccine_code"),
+  doseNumber: integer("dose_number").notNull(),
+  scheduledDate: date("scheduled_date").notNull(),
+  administeredDate: date("administered_date"),
+  status: varchar("status", { enum: ["scheduled", "completed", "overdue", "skipped"] }).default("scheduled").notNull(),
+  clinicId: varchar("clinic_id").references(() => clinics.id),
+  administeredBy: varchar("administered_by"),
+  batchNumber: varchar("batch_number"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Clinics table
+export const clinics = pgTable("clinics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name").notNull(),
+  address: text("address"),
+  city: varchar("city"),
+  country: varchar("country"),
+  phone: varchar("phone"),
+  email: varchar("email"),
+  website: varchar("website"),
+  operatingHours: jsonb("operating_hours").$type<{
+    monday?: { open: string; close: string };
+    tuesday?: { open: string; close: string };
+    wednesday?: { open: string; close: string };
+    thursday?: { open: string; close: string };
+    friday?: { open: string; close: string };
+    saturday?: { open: string; close: string };
+    sunday?: { open: string; close: string };
+  }>(),
+  verified: boolean("verified").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Appointments table
+export const appointments = pgTable("appointments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  childId: varchar("child_id").notNull().references(() => children.id, { onDelete: "cascade" }),
+  clinicId: varchar("clinic_id").references(() => clinics.id),
+  vaccinationRecordId: varchar("vaccination_record_id").references(() => vaccinationRecords.id),
+  scheduledDateTime: timestamp("scheduled_date_time").notNull(),
+  status: varchar("status", { enum: ["scheduled", "confirmed", "completed", "cancelled", "no_show"] }).default("scheduled").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: varchar("type", { enum: ["reminder", "appointment", "overdue", "system"] }).notNull(),
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  read: boolean("read").default(false),
+  actionUrl: varchar("action_url"),
+  scheduledFor: timestamp("scheduled_for"),
+  sentAt: timestamp("sent_at"),
+  sentViaSms: boolean("sent_via_sms").default(false),
+  sentViaPush: boolean("sent_via_push").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Push subscription table
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull(),
+  keys: jsonb("keys").$type<{ p256dh: string; auth: string }>().notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Relations
+export const usersRelations = relations(users, ({ many, one }) => ({
+  children: many(children),
+  notifications: many(notifications),
+  pushSubscriptions: many(pushSubscriptions),
+  clinic: one(clinics),
+}));
+
+export const childrenRelations = relations(children, ({ one, many }) => ({
+  user: one(users, { fields: [children.userId], references: [users.id] }),
+  vaccinationRecords: many(vaccinationRecords),
+  appointments: many(appointments),
+}));
+
+export const vaccinationRecordsRelations = relations(vaccinationRecords, ({ one }) => ({
+  child: one(children, { fields: [vaccinationRecords.childId], references: [children.id] }),
+  schedule: one(vaccinationSchedules, { fields: [vaccinationRecords.scheduleId], references: [vaccinationSchedules.id] }),
+  clinic: one(clinics, { fields: [vaccinationRecords.clinicId], references: [clinics.id] }),
+}));
+
+export const clinicsRelations = relations(clinics, ({ one, many }) => ({
+  user: one(users, { fields: [clinics.userId], references: [users.id] }),
+  vaccinationRecords: many(vaccinationRecords),
+  appointments: many(appointments),
+}));
+
+export const appointmentsRelations = relations(appointments, ({ one }) => ({
+  child: one(children, { fields: [appointments.childId], references: [children.id] }),
+  clinic: one(clinics, { fields: [appointments.clinicId], references: [clinics.id] }),
+  vaccinationRecord: one(vaccinationRecords, { fields: [appointments.vaccinationRecordId], references: [vaccinationRecords.id] }),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, { fields: [notifications.userId], references: [users.id] }),
+}));
+
+// Insert schemas
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertChildSchema = createInsertSchema(children).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertVaccinationScheduleSchema = createInsertSchema(vaccinationSchedules).omit({
+  id: true,
+});
+
+export const insertVaccinationRecordSchema = createInsertSchema(vaccinationRecords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertClinicSchema = createInsertSchema(clinics).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAppointmentSchema = createInsertSchema(appointments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types
 export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UpsertUser = typeof users.$inferInsert;
+
+export type Child = typeof children.$inferSelect;
+export type InsertChild = z.infer<typeof insertChildSchema>;
+
+export type VaccinationSchedule = typeof vaccinationSchedules.$inferSelect;
+export type InsertVaccinationSchedule = z.infer<typeof insertVaccinationScheduleSchema>;
+
+export type VaccinationRecord = typeof vaccinationRecords.$inferSelect;
+export type InsertVaccinationRecord = z.infer<typeof insertVaccinationRecordSchema>;
+
+export type Clinic = typeof clinics.$inferSelect;
+export type InsertClinic = z.infer<typeof insertClinicSchema>;
+
+export type Appointment = typeof appointments.$inferSelect;
+export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
