@@ -1,6 +1,10 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist/public",
+  "env": {
+    "DATABASE_URL": "@vercel_postgres_url_non_pooling",
+    "SESSION_SECRET": "@session_secret"
+  },
   "rewrites": [
     {
       "source": "/(.*)",

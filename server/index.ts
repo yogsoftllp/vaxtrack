@@ -17,12 +17,17 @@ app.use(express.urlencoded({ extended: false }));
     if (process.env.NODE_ENV === "production") {
       serveStatic(app);
     } else {
-      const { setupVite } = await import("./vite");
-      await setupVite(app);
+      try {
+        const { setupVite } = await import("./vite-dev");
+        await setupVite(app);
+      } catch (e) {
+        console.log("Vite setup skipped, using static files");
+        serveStatic(app);
+      }
     }
 
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on port ${PORT}`);
+      console.log(`✅ Server running on port ${PORT}`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);

@@ -2,10 +2,22 @@ import { Express } from "express";
 import session from "express-session";
 import ConnectPgSimple from "connect-pg-simple";
 import { Pool } from "@neondatabase/serverless";
+import postgres from "postgres";
+
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL_NON_POOLING;
 
 export async function setupAuth(app: Express) {
   const pgSession = ConnectPgSimple(session);
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  
+  // Use Neon pool for Replit, or create connection for Vercel
+  let pool: any;
+  if (process.env.DATABASE_URL?.includes("neon")) {
+    pool = new Pool({ connectionString: databaseUrl });
+  } else {
+    // Vercel Postgres - create a simple pool-like object
+    const client = postgres(databaseUrl || "");
+    pool = client;
+  }
 
   app.use(
     session({
@@ -17,7 +29,7 @@ export async function setupAuth(app: Express) {
     })
   );
 
-  // Mock auth middleware - replace with Replit Auth later
+  // Mock auth middleware
   app.get("/auth/login", (req: any, res) => {
     req.session.user = { id: "test-user", firstName: "Test" };
     res.redirect("/");
