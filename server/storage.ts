@@ -15,6 +15,7 @@ import {
   vaccinePricing,
   clinicAdvertisements,
   referrals,
+  phoneOtps,
   type User,
   type UpsertUser,
   type Child,
@@ -47,6 +48,8 @@ import {
   type InsertClinicAdvertisement,
   type Referral,
   type InsertReferral,
+  type PhoneOtp,
+  type InsertPhoneOtp,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql, isNull, or, lt } from "drizzle-orm";
@@ -139,6 +142,15 @@ export interface IStorage {
   getReferralStats(userId: string): Promise<{ code: string; count: number; status: string }>;
   signUpWithReferral(referralCode: string, newUserId: string): Promise<Referral>;
   completeReferral(referralCode: string, newUserId: string): Promise<void>;
+  
+  // Phone authentication
+  generateOtp(phone: string): Promise<{ otp: string; expiresAt: Date }>;
+  verifyOtp(phone: string, otp: string): Promise<boolean>;
+  getUserByPhone(phone: string): Promise<User | undefined>;
+  
+  // Clinic verification
+  getPendingVerifications(): Promise<User[]>;
+  verifyClinicalUser(userId: string, approvedBy: string, approved: boolean, notes?: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1039,6 +1051,67 @@ export class DatabaseStorage implements IStorage {
         .set({ subscriptionTier: "family" })
         .where(eq(users.id, referrerId));
     }
+  }
+
+  // Phone authentication
+  async generateOtp(phone: string): Promise<{ otp: string; expiresAt: Date }> {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    
+    await db.insert(phoneOtps).values({ phone, otp, expiresAt } as any);
+    
+    return { otp, expiresAt };
+  }
+
+  async verifyOtp(phone: string, otp: string): Promise<boolean> {
+    const records = await db
+      .select()
+      .from(phoneOtps)
+      .where(and(eq(phoneOtps.phone, phone), eq(phoneOtps.otp, otp)))
+      .orderBy(desc(phoneOtps.createdAt))
+      .limit(1);
+    
+    if (!records || records.length === 0) return false;
+    
+    const record = records[0];
+    if (new Date() > record.expiresAt) return false;
+    
+    return true;
+  }
+
+  async getUserByPhone(phone: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.phone, phone))
+      .limit(1);
+    return user;
+  }
+
+  async getPendingVerifications(): Promise<User[]> {
+    return db
+      .select()
+      .from(users)
+      .where(and(
+        eq(users.role, "clinic"),
+        eq(users.clinicVerificationStatus, "pending")
+      ));
+  }
+
+  async verifyClinicalUser(userId: string, approvedBy: string, approved: boolean, notes?: string): Promise<void> {
+    const status = approved ? "approved" : "rejected";
+    const verifiedAt = approved ? new Date() : null;
+    
+    await db
+      .update(users)
+      .set({
+        clinicVerificationStatus: status,
+        clinicVerificationNotes: notes,
+        clinicVerifiedBy: approvedBy,
+        clinicVerifiedAt: verifiedAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
   }
 }
 

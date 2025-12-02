@@ -814,5 +814,82 @@ export async function registerRoutes(
     }
   });
 
+  // Phone OTP Authentication
+  app.post('/api/auth/send-otp', async (req: any, res) => {
+    try {
+      const { phone, method } = req.body;
+      if (!phone) return res.status(400).json({ message: "Phone required" });
+      
+      const { otp } = await storage.generateOtp(phone);
+      console.log(`[${method.toUpperCase()}] OTP ${otp} sent to ${phone}`);
+      res.json({ message: "OTP sent", expiresIn: 600 });
+    } catch (error) {
+      console.error("Error sending OTP:", error);
+      res.status(500).json({ message: "Failed to send OTP" });
+    }
+  });
+
+  app.post('/api/auth/verify-otp', async (req: any, res) => {
+    try {
+      const { phone, otp } = req.body;
+      const verified = await storage.verifyOtp(phone, otp);
+      
+      if (!verified) return res.status(400).json({ message: "Invalid OTP" });
+      
+      let user = await storage.getUserByPhone(phone);
+      if (!user) {
+        const id = `phone-${Date.now()}`;
+        user = await storage.upsertUser({
+          id,
+          phone,
+          authProvider: "phone",
+        } as any);
+      }
+      
+      req.login(user, (err) => {
+        if (err) return res.status(500).json({ message: "Login failed" });
+        res.json(user);
+      });
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      res.status(500).json({ message: "Verification failed" });
+    }
+  });
+
+  app.get('/api/admin/pending-clinic-verifications', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== "admin" && user?.role !== "superadmin") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      const clinics = await storage.getPendingVerifications();
+      res.json(clinics);
+    } catch (error) {
+      console.error("Error fetching verifications:", error);
+      res.status(500).json({ message: "Failed to fetch verifications" });
+    }
+  });
+
+  app.post('/api/admin/verify-clinic', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const { clinicId, approved, notes } = req.body;
+      
+      if (user?.role !== "admin" && user?.role !== "superadmin") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      await storage.verifyClinicalUser(clinicId, userId, approved, notes);
+      res.json({ message: approved ? "Clinic approved" : "Clinic rejected" });
+    } catch (error) {
+      console.error("Error verifying clinic:", error);
+      res.status(500).json({ message: "Failed to verify clinic" });
+    }
+  });
+
   return httpServer;
 }

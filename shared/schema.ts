@@ -431,6 +431,11 @@ export const insertReferralSchema = createInsertSchema(referrals).omit({
   completedAt: true,
 });
 
+export const insertPhoneOtpSchema = createInsertSchema(phoneOtps).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
@@ -466,6 +471,8 @@ export type ClinicAdvertisement = typeof clinicAdvertisements.$inferSelect;
 export type InsertClinicAdvertisement = z.infer<typeof insertClinicAdvertisementSchema>;
 export type Referral = typeof referrals.$inferSelect;
 export type InsertReferral = z.infer<typeof insertReferralSchema>;
+export type PhoneOtp = typeof phoneOtps.$inferSelect;
+export type InsertPhoneOtp = z.infer<typeof insertPhoneOtpSchema>;
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
