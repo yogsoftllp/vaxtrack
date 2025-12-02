@@ -4,15 +4,6 @@ import { PrismaSessionStore } from "@quixo3/prisma-session-store";
 import { db } from "./db";
 
 export async function setupAuth(app: Express) {
-  // Create sessions table if needed
-  await db.session.deleteMany({
-    where: {
-      expire: {
-        lt: new Date(),
-      },
-    },
-  });
-
   app.use(
     session({
       store: new PrismaSessionStore(db, {
