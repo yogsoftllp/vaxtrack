@@ -1,10 +1,28 @@
+import { useEffect, useState } from "react";
+import Dashboard from "./pages/dashboard";
+
 export default function App() {
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-white">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">VaxTrack</h1>
-        <p className="text-gray-600 text-lg">Starting fresh...</p>
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/auth/user")
+      .then((res) => res.json())
+      .then(setUser)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  
+  if (!user?.id) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <a href="/auth/login" className="px-4 py-2 bg-blue-600 text-white rounded">
+          Login
+        </a>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return <Dashboard user={user} />;
 }
