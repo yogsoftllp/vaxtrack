@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { notificationService } from "./notificationService";
 import { getScheduleForCountry } from "@shared/vaccinationData";
-import { insertChildSchema, insertVaccinationRecordSchema, pushSubscriptions, insertLandingPageBrandingSchema, clinics } from "@shared/schema";
+import { insertChildSchema, insertVaccinationRecordSchema, pushSubscriptions, insertLandingPageBrandingSchema, clinics, insertAppointmentSlotSchema, insertAppointmentSchema } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -660,6 +660,60 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating vaccine pricing:", error);
       res.status(500).json({ message: "Failed to update pricing" });
+    }
+  });
+
+  // Appointment slot management
+  app.get('/api/clinic/:clinicId/slots', async (req: any, res) => {
+    try {
+      const { clinicId } = req.params;
+      const fromDate = req.query.fromDate || new Date().toISOString().split('T')[0];
+      const slots = await storage.getClinicSlots(clinicId, fromDate);
+      res.json(slots);
+    } catch (error) {
+      console.error("Error fetching slots:", error);
+      res.status(500).json({ message: "Failed to fetch slots" });
+    }
+  });
+
+  app.post('/api/clinic/:clinicId/slots', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== "clinic" && user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { clinicId } = req.params;
+      const validated = insertAppointmentSlotSchema.parse(req.body);
+      const slot = await storage.createSlot({ ...validated, clinicId });
+      res.json(slot);
+    } catch (error) {
+      console.error("Error creating slot:", error);
+      res.status(500).json({ message: "Failed to create slot" });
+    }
+  });
+
+  app.post('/api/appointment/book', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { slotId, childId, vaccinationRecordId, notes } = req.body;
+
+      if (!slotId || !childId) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const appointment = await storage.bookSlot(slotId, {
+        childId,
+        vaccinationRecordId,
+        notes,
+      });
+
+      res.json(appointment);
+    } catch (error) {
+      console.error("Error booking appointment:", error);
+      res.status(500).json({ message: (error as any).message || "Failed to book appointment" });
     }
   });
 

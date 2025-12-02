@@ -128,9 +128,24 @@ export const appointments = pgTable("appointments", {
   childId: varchar("child_id").notNull().references(() => children.id, { onDelete: "cascade" }),
   clinicId: varchar("clinic_id").references(() => clinics.id),
   vaccinationRecordId: varchar("vaccination_record_id").references(() => vaccinationRecords.id),
+  slotId: varchar("slot_id").references(() => appointmentSlots.id),
   scheduledDateTime: timestamp("scheduled_date_time").notNull(),
   status: varchar("status", { enum: ["scheduled", "confirmed", "completed", "cancelled", "no_show"] }).default("scheduled").notNull(),
   notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Appointment slots table - for clinic slot management
+export const appointmentSlots = pgTable("appointment_slots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicId: varchar("clinic_id").notNull().references(() => clinics.id, { onDelete: "cascade" }),
+  date: varchar("date").notNull(), // YYYY-MM-DD format
+  startTime: varchar("start_time").notNull(), // HH:mm format
+  endTime: varchar("end_time").notNull(), // HH:mm format
+  capacity: integer("capacity").default(1).notNull(), // Number of appointments this slot can accommodate
+  booked: integer("booked").default(0).notNull(), // Current number of bookings
+  isAvailable: boolean("is_available").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -301,6 +316,12 @@ export const appointmentsRelations = relations(appointments, ({ one }) => ({
   child: one(children, { fields: [appointments.childId], references: [children.id] }),
   clinic: one(clinics, { fields: [appointments.clinicId], references: [clinics.id] }),
   vaccinationRecord: one(vaccinationRecords, { fields: [appointments.vaccinationRecordId], references: [vaccinationRecords.id] }),
+  slot: one(appointmentSlots, { fields: [appointments.slotId], references: [appointmentSlots.id] }),
+}));
+
+export const appointmentSlotsRelations = relations(appointmentSlots, ({ one, many }) => ({
+  clinic: one(clinics, { fields: [appointmentSlots.clinicId], references: [clinics.id] }),
+  appointments: many(appointments),
 }));
 
 export const notificationsRelations = relations(notifications, ({ one }) => ({
@@ -342,6 +363,12 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   updatedAt: true,
 });
 
+export const insertAppointmentSlotSchema = createInsertSchema(appointmentSlots).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
@@ -370,6 +397,8 @@ export type Clinic = typeof clinics.$inferSelect;
 export type InsertClinic = z.infer<typeof insertClinicSchema>;
 
 export type Appointment = typeof appointments.$inferSelect;
+export type AppointmentSlot = typeof appointmentSlots.$inferSelect;
+export type InsertAppointmentSlot = z.infer<typeof insertAppointmentSlotSchema>;
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 
 export type Notification = typeof notifications.$inferSelect;

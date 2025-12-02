@@ -191,18 +191,32 @@ export default function AIDashboard() {
                   </div>
                 )}
 
-                {/* Website Link */}
-                {clinic.website && (
+                {/* Website Link and Book Appointment */}
+                <div className="flex gap-2">
+                  {clinic.website && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => window.open(clinic.website, "_blank")}
+                      data-testid={`button-visit-website-${clinic.id}`}
+                    >
+                      Website
+                    </Button>
+                  )}
                   <Button
-                    variant="outline"
                     size="sm"
-                    className="w-full"
-                    onClick={() => window.open(clinic.website, "_blank")}
-                    data-testid={`button-visit-website-${clinic.id}`}
+                    className="flex-1"
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = `/book-appointment/${clinic.id}`;
+                      link.click();
+                    }}
+                    data-testid={`button-book-appointment-${clinic.id}`}
                   >
-                    Visit Website
+                    Book Appointment
                   </Button>
-                )}
+                </div>
               </CardContent>
             </Card>
           ))}

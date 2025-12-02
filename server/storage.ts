@@ -5,6 +5,7 @@ import {
   vaccinationRecords,
   clinics,
   appointments,
+  appointmentSlots,
   notifications,
   pushSubscriptions,
   systemConfiguration,
@@ -38,6 +39,8 @@ import {
   type InsertUserClinicAssociation,
   type VaccinePricing,
   type InsertVaccinePricing,
+  type AppointmentSlot,
+  type InsertAppointmentSlot,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql, isNull, or, lt } from "drizzle-orm";
@@ -112,6 +115,12 @@ export interface IStorage {
   getNearByClinics(city: string, country: string): Promise<any[]>;
   getVaccinePricing(clinicId: string): Promise<VaccinePricing[]>;
   upsertVaccinePricing(clinicId: string, pricing: InsertVaccinePricing): Promise<VaccinePricing>;
+  
+  // Appointment slots
+  getClinicSlots(clinicId: string, fromDate: string): Promise<AppointmentSlot[]>;
+  createSlot(slot: InsertAppointmentSlot): Promise<AppointmentSlot>;
+  bookSlot(slotId: string, appointment: Partial<InsertAppointment>): Promise<Appointment>;
+  updateSlotAvailability(slotId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -783,6 +792,85 @@ export class DatabaseStorage implements IStorage {
         .values({ clinicId, ...pricingData } as any)
         .returning();
       return created;
+    }
+  }
+
+  // Appointment slot management
+  async getClinicSlots(clinicId: string, fromDate: string): Promise<AppointmentSlot[]> {
+    return await db
+      .select()
+      .from(appointmentSlots)
+      .where(and(
+        eq(appointmentSlots.clinicId, clinicId),
+        sql`${appointmentSlots.date} >= ${fromDate}`,
+        eq(appointmentSlots.isAvailable, true)
+      ))
+      .orderBy(appointmentSlots.date, appointmentSlots.startTime);
+  }
+
+  async createSlot(slotData: InsertAppointmentSlot): Promise<AppointmentSlot> {
+    const [slot] = await db
+      .insert(appointmentSlots)
+      .values(slotData as any)
+      .returning();
+    return slot;
+  }
+
+  async bookSlot(slotId: string, appointmentData: Partial<InsertAppointment>): Promise<Appointment> {
+    // Get current slot
+    const slot = await db
+      .select()
+      .from(appointmentSlots)
+      .where(eq(appointmentSlots.id, slotId))
+      .limit(1);
+
+    if (!slot || slot.length === 0) {
+      throw new Error("Slot not found");
+    }
+
+    const currentSlot = slot[0];
+    if (currentSlot.booked >= currentSlot.capacity) {
+      throw new Error("Slot is full");
+    }
+
+    // Create appointment
+    const [appointment] = await db
+      .insert(appointments)
+      .values({
+        ...appointmentData,
+        slotId,
+        scheduledDateTime: new Date(`${currentSlot.date}T${currentSlot.startTime}`),
+      } as any)
+      .returning();
+
+    // Update slot booking count
+    await db
+      .update(appointmentSlots)
+      .set({
+        booked: currentSlot.booked + 1,
+        isAvailable: (currentSlot.booked + 1) < currentSlot.capacity,
+        updatedAt: new Date(),
+      })
+      .where(eq(appointmentSlots.id, slotId));
+
+    return appointment;
+  }
+
+  async updateSlotAvailability(slotId: string): Promise<void> {
+    const slot = await db
+      .select()
+      .from(appointmentSlots)
+      .where(eq(appointmentSlots.id, slotId))
+      .limit(1);
+
+    if (slot && slot.length > 0) {
+      await db
+        .update(appointmentSlots)
+        .set({
+          isAvailable: slot[0].booked < slot[0].capacity,
+          updatedAt: new Date(),
+        })
+        .where(eq(appointmentSlots.id, slotId));
     }
   }
 }
