@@ -557,6 +557,21 @@ export async function registerRoutes(
     }
   });
 
+  // Clinic lookup by domain
+  app.get('/api/clinics/domain/:domain', async (req: any, res) => {
+    try {
+      const { domain } = req.params;
+      const clinic = await storage.getClinicByDomain(domain);
+      if (!clinic) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+      res.json(clinic);
+    } catch (error) {
+      console.error("Error searching clinic by domain:", error);
+      res.status(500).json({ message: "Failed to search clinic" });
+    }
+  });
+
   app.get('/api/clinics/branding/:clinicId', async (req: any, res) => {
     try {
       const { clinicId } = req.params;

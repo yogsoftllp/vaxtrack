@@ -1,25 +1,36 @@
 import { useState } from "react";
-import { useNavigate } from "wouter";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search } from "lucide-react";
 
+interface ClinicData {
+  id: string;
+  name: string;
+  city?: string;
+  country?: string;
+}
+
+interface BrandingData {
+  logoUrl?: string;
+}
+
 export default function ClinicLogin() {
   const [clinicName, setClinicName] = useState("");
-  const [selectedClinic, setSelectedClinic] = useState<any>(null);
-  const navigate = useNavigate();
+  const [selectedClinic, setSelectedClinic] = useState<ClinicData | null>(null);
+  const [, navigate] = useLocation();
 
   const { data: clinic, isLoading, isError } = useQuery({
     queryKey: ["/api/clinics/search", clinicName],
     enabled: clinicName.length > 2,
-  });
+  }) as { data?: ClinicData; isLoading: boolean; isError: boolean };
 
   const { data: branding } = useQuery({
     queryKey: ["/api/clinics/branding", clinic?.id],
     enabled: !!clinic?.id,
-  });
+  }) as { data?: BrandingData };
 
   const handleSelect = async () => {
     if (clinic) {

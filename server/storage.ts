@@ -99,6 +99,7 @@ export interface IStorage {
   
   // Multi-clinic support
   getClinicByName(name: string): Promise<Clinic | undefined>;
+  getClinicByDomain(domain: string): Promise<Clinic | undefined>;
   getUserClinics(userId: string): Promise<Clinic[]>;
   addUserToClinic(userId: string, clinicId: string, role: string): Promise<UserClinicAssociation>;
   removeUserFromClinic(userId: string, clinicId: string): Promise<boolean>;
@@ -644,6 +645,15 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(clinics)
       .where(eq(clinics.name, name))
+      .limit(1);
+    return clinic;
+  }
+
+  async getClinicByDomain(domain: string): Promise<Clinic | undefined> {
+    const [clinic] = await db
+      .select()
+      .from(clinics)
+      .where(eq(clinics.customDomain, domain))
       .limit(1);
     return clinic;
   }

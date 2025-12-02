@@ -107,6 +107,7 @@ export const clinics = pgTable("clinics", {
   phone: varchar("phone"),
   email: varchar("email"),
   website: varchar("website"),
+  customDomain: varchar("custom_domain").unique(),
   operatingHours: jsonb("operating_hours").$type<{
     monday?: { open: string; close: string };
     tuesday?: { open: string; close: string };

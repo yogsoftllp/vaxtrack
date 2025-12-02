@@ -22,6 +22,9 @@ import Settings from "@/pages/settings";
 import ClinicDashboard from "@/pages/clinic-dashboard";
 import AdminSettings from "@/pages/admin-settings";
 import ClinicBranding from "@/pages/clinic-branding";
+import ClinicLogin from "@/pages/clinic-login";
+import LandingCustomization from "@/pages/landing-customization";
+import DomainClinicLogin from "@/pages/domain-clinic-login";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -72,6 +75,8 @@ function Router() {
         <>
           <Route path="/" component={Landing} />
           <Route path="/pricing" component={Pricing} />
+          <Route path="/clinic-login" component={ClinicLogin} />
+          <Route path="/clinic/:domain" component={DomainClinicLogin} />
           <Route component={NotFound} />
         </>
       ) : (
@@ -125,6 +130,11 @@ function Router() {
           <Route path="/admin/clinic/:clinicId/branding">
             <AuthenticatedLayout>
               <ClinicBranding />
+            </AuthenticatedLayout>
+          </Route>
+          <Route path="/admin/landing-customization">
+            <AuthenticatedLayout>
+              <LandingCustomization />
             </AuthenticatedLayout>
           </Route>
           <Route>

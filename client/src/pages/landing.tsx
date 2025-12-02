@@ -24,7 +24,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { Link } from "wouter";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 const features = [
@@ -110,11 +110,17 @@ const faqItems = [
   },
 ];
 
+interface LandingBranding {
+  logoUrl?: string;
+  headerText?: string;
+  primaryColor?: string;
+}
+
 export default function Landing() {
   const [openFaq, setOpenFaq] = useState(0);
   const { data: branding } = useQuery({
     queryKey: ["/api/public/landing-branding"],
-  });
+  }) as { data?: LandingBranding };
 
   const logoUrl = branding?.logoUrl;
   const headerText = branding?.headerText || "VaxTrack";
