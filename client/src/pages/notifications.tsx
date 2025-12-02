@@ -1,12 +1,10 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { NotificationItem } from "@/components/notification-item";
-import { Bell, CheckCheck, Trash2, Settings } from "lucide-react";
+import { Bell, CheckCheck, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "wouter";
 import type { Notification } from "@shared/schema";
 
 export default function Notifications() {
@@ -22,9 +20,7 @@ export default function Notifications() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      toast({
-        title: "All notifications marked as read",
-      });
+      toast({ title: "All marked as read" });
     },
   });
 
@@ -40,85 +36,93 @@ export default function Notifications() {
   const unreadCount = notifications?.filter((n) => !n.read).length || 0;
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground" data-testid="text-notifications-title">
-            Notifications
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {unreadCount > 0 
-              ? `You have ${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`
-              : "You're all caught up!"
-            }
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="min-h-screen bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-800 pb-20">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 px-4 py-4">
+        <div className="flex items-center justify-between max-w-md mx-auto w-full sm:max-w-2xl">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white" data-testid="text-notifications-title">
+              Notifications
+            </h1>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              {unreadCount > 0 ? `${unreadCount} unread` : "All caught up!"}
+            </p>
+          </div>
           {unreadCount > 0 && (
             <Button
-              variant="outline"
               size="sm"
-              className="gap-2"
+              variant="outline"
               onClick={() => markAllReadMutation.mutate()}
-              disabled={markAllReadMutation.isPending}
               data-testid="button-mark-all-read"
+              className="text-xs gap-1"
             >
               <CheckCheck className="h-4 w-4" />
-              Mark all read
+              Mark read
             </Button>
           )}
-          <Link href="/settings">
-            <Button variant="outline" size="sm" className="gap-2" data-testid="button-notification-settings">
-              <Settings className="h-4 w-4" />
-              Settings
-            </Button>
-          </Link>
         </div>
       </div>
 
-      {/* Notifications List */}
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="divide-y divide-border">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="p-4 flex items-start gap-3">
-                  <Skeleton className="h-9 w-9 rounded-full" />
-                  <div className="flex-1">
-                    <Skeleton className="h-4 w-48 mb-2" />
-                    <Skeleton className="h-3 w-full" />
+      {/* Content */}
+      <div className="px-4 max-w-md mx-auto w-full sm:max-w-2xl pt-4">
+        {isLoading ? (
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-16 rounded-2xl" />
+            ))}
+          </div>
+        ) : notifications && notifications.length > 0 ? (
+          <div className="space-y-2">
+            {notifications.map((notification) => (
+              <Card
+                key={notification.id}
+                className={`border-0 shadow-sm cursor-pointer transition-all ${
+                  !notification.read ? "bg-blue-50 dark:bg-blue-950/20" : ""
+                }`}
+                onClick={() => !notification.read && markReadMutation.mutate(notification.id)}
+                data-testid={`card-notification-${notification.id}`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className={`h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      notification.type === "overdue" ? "bg-red-100 dark:bg-red-900/30" :
+                      notification.type === "reminder" ? "bg-blue-100 dark:bg-blue-900/30" :
+                      "bg-slate-100 dark:bg-slate-800"
+                    }`}>
+                      <Bell className={`h-5 w-5 ${
+                        notification.type === "overdue" ? "text-red-600 dark:text-red-400" :
+                        notification.type === "reminder" ? "text-blue-600 dark:text-blue-400" :
+                        "text-slate-600 dark:text-slate-400"
+                      }`} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm text-slate-900 dark:text-white">
+                        {notification.title}
+                      </p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                        {notification.message}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
+                        {new Date(notification.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {!notification.read && (
+                      <div className="h-2 w-2 rounded-full bg-blue-600 flex-shrink-0" />
+                    )}
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : notifications && notifications.length > 0 ? (
-            <div className="divide-y divide-border">
-              {notifications.map((notification) => (
-                <NotificationItem
-                  key={notification.id}
-                  notification={notification}
-                  onClick={() => {
-                    if (!notification.read) {
-                      markReadMutation.mutate(notification.id);
-                    }
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="p-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                <Bell className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="font-semibold text-foreground mb-2">No notifications yet</h3>
-              <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-                You'll receive notifications about upcoming vaccinations, appointment reminders, and important updates here
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-12 text-center">
+              <Bell className="h-12 w-12 text-slate-400 mx-auto mb-3" />
+              <p className="text-sm text-slate-600 dark:text-slate-400">No notifications</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

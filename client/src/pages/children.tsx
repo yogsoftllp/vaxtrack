@@ -3,8 +3,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChildCard } from "@/components/child-card";
-import { Plus, Users, Search } from "lucide-react";
+import { Plus, Users, Search, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import type { Child } from "@shared/schema";
@@ -31,98 +30,98 @@ export default function Children() {
   });
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground" data-testid="text-children-title">
-            Children
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your children's profiles and vaccination records
-          </p>
+    <div className="min-h-screen bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-800 pb-20">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 px-4 py-4">
+        <div className="flex items-center justify-between max-w-md mx-auto w-full sm:max-w-2xl">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white" data-testid="text-children-title">
+              Children
+            </h1>
+            <p className="text-xs text-slate-600 dark:text-slate-400">Manage all profiles</p>
+          </div>
+          <Link href="/children/add">
+            <Button size="icon" data-testid="button-add-child">
+              <Plus className="h-5 w-5" />
+            </Button>
+          </Link>
         </div>
-        <Link href="/children/add">
-          <Button className="gap-2" data-testid="button-add-child">
-            <Plus className="h-4 w-4" />
-            Add Child
-          </Button>
-        </Link>
       </div>
 
-      {/* Search */}
-      {children && children.length > 0 && (
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search children..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-            data-testid="input-search-children"
-          />
-        </div>
-      )}
+      {/* Content */}
+      <div className="px-4 max-w-md mx-auto w-full sm:max-w-2xl pt-4 space-y-4">
+        {/* Search */}
+        {children && children.length > 0 && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 rounded-xl border-0 bg-slate-100 dark:bg-slate-800"
+              data-testid="input-search-children"
+            />
+          </div>
+        )}
 
-      {/* Children List */}
-      {isLoading ? (
-        <div className="space-y-4">
-          {[...Array(3)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-4">
-                  <Skeleton className="h-14 w-14 rounded-full" />
-                  <div className="flex-1">
-                    <Skeleton className="h-5 w-32 mb-2" />
-                    <Skeleton className="h-4 w-48" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : filteredChildren && filteredChildren.length > 0 ? (
-        <div className="space-y-4">
-          {filteredChildren.map((child) => (
-            <Link key={child.id} href={`/children/${child.id}`}>
-              <ChildCard 
-                child={child} 
-                stats={child.stats}
-              />
-            </Link>
-          ))}
-        </div>
-      ) : children && children.length > 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-              <Search className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="font-semibold text-foreground mb-2">No results found</h3>
-            <p className="text-muted-foreground text-sm">
-              Try a different search term
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-              <Users className="h-10 w-10 text-primary" />
-            </div>
-            <h3 className="text-xl font-semibold text-foreground mb-2">No children added yet</h3>
-            <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-              Add your first child to start tracking their vaccinations and receive timely reminders
-            </p>
-            <Link href="/children/add">
-              <Button className="gap-2" size="lg">
-                <Plus className="h-4 w-4" />
-                Add Your First Child
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      )}
+        {/* Children List */}
+        {isLoading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <Skeleton key={i} className="h-20 rounded-2xl" />
+            ))}
+          </div>
+        ) : filteredChildren && filteredChildren.length > 0 ? (
+          <div className="space-y-3">
+            {filteredChildren.map((child) => (
+              <Link key={child.id} href={`/children/${child.id}`}>
+                <Card className="border-0 shadow-sm hover:shadow-md transition-all" data-testid={`card-child-${child.id}`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-slate-900 dark:text-white">{child.firstName} {child.lastName}</h3>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                          {child.stats.completed} of {child.stats.total} vaccines
+                        </p>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <div className="mt-3 w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full"
+                        style={{ width: `${(child.stats.completed / child.stats.total) * 100}%` }}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        ) : children && children.length > 0 ? (
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-8 text-center">
+              <Search className="h-12 w-12 text-slate-400 mx-auto mb-3" />
+              <p className="text-sm text-slate-600 dark:text-slate-400">No results</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-8 text-center">
+              <Users className="h-12 w-12 text-slate-400 mx-auto mb-3" />
+              <h3 className="font-semibold text-slate-900 dark:text-white mb-2">No children yet</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                Add your first child to start tracking vaccines
+              </p>
+              <Link href="/children/add" className="w-full">
+                <Button className="w-full gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Child
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

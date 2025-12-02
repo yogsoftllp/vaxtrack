@@ -1,24 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatCard } from "@/components/stat-card";
-import { ChildCard } from "@/components/child-card";
-import { VaccinationCard } from "@/components/vaccination-card";
-import { ClinicAds } from "@/components/clinic-ads";
-import { ReferralCard } from "@/components/referral-card";
 import { useAuth } from "@/hooks/useAuth";
 import { 
-  Users, 
-  CalendarCheck, 
-  AlertTriangle, 
-  TrendingUp,
+  Home,
   Plus,
   ChevronRight,
+  AlertTriangle,
   Calendar,
-  Bell,
-  Syringe
+  CheckCircle2,
+  Zap,
+  Users,
 } from "lucide-react";
 import type { Child, VaccinationRecord } from "@shared/schema";
 
@@ -65,135 +60,164 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground" data-testid="text-greeting">
-            {greeting()}, {user?.firstName || "there"}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Here's your family's vaccination overview
-          </p>
+    <div className="min-h-screen bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-800 pb-20">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 px-4 py-4">
+        <div className="flex items-center justify-between max-w-md mx-auto w-full sm:max-w-2xl">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white" data-testid="text-greeting">
+              {greeting()}
+            </h1>
+            <p className="text-xs text-slate-600 dark:text-slate-400">{user?.firstName || "there"}</p>
+          </div>
+          <Link href="/notifications">
+            <Button variant="ghost" size="icon" data-testid="button-notifications">
+              <div className="relative">
+                <Home className="h-5 w-5" />
+                {stats?.overdueVaccines ? (
+                  <Badge className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                    {stats.overdueVaccines}
+                  </Badge>
+                ) : null}
+              </div>
+            </Button>
+          </Link>
         </div>
-        <Link href="/children/add">
-          <Button className="gap-2" data-testid="button-add-child">
-            <Plus className="h-4 w-4" />
-            Add Child
-          </Button>
-        </Link>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Main Content */}
+      <div className="px-4 max-w-md mx-auto w-full sm:max-w-2xl pt-4 space-y-4">
+        {/* Stats Cards - Native Style */}
         {statsLoading ? (
-          <>
+          <div className="grid grid-cols-2 gap-3">
             {[...Array(4)].map((_, i) => (
-              <Card key={i}>
-                <CardContent className="p-6">
-                  <Skeleton className="h-4 w-24 mb-2" />
-                  <Skeleton className="h-8 w-16" />
-                </CardContent>
-              </Card>
+              <Skeleton key={i} className="h-24 rounded-2xl" />
             ))}
-          </>
+          </div>
         ) : (
-          <>
-            <StatCard
-              title="Children"
-              value={stats?.totalChildren || 0}
-              icon={Users}
-              variant="info"
-            />
-            <StatCard
-              title="Upcoming"
-              value={stats?.upcomingVaccines || 0}
-              subtitle="Next 30 days"
-              icon={Calendar}
-              variant="default"
-            />
-            <StatCard
-              title="Overdue"
-              value={stats?.overdueVaccines || 0}
-              icon={AlertTriangle}
-              variant={stats?.overdueVaccines ? "danger" : "default"}
-            />
-            <StatCard
-              title="Completed"
-              value={stats?.completedVaccines || 0}
-              icon={CalendarCheck}
-              variant="success"
-            />
-          </>
+          <div className="grid grid-cols-2 gap-3">
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-4">
+                <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Children</p>
+                <p className="text-3xl font-bold text-slate-900 dark:text-white">{stats?.totalChildren || 0}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-4">
+                <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Upcoming</p>
+                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats?.upcomingVaccines || 0}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-4">
+                <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Overdue</p>
+                <p className={`text-3xl font-bold ${stats?.overdueVaccines ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
+                  {stats?.overdueVaccines || 0}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-4">
+                <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Completed</p>
+                <p className="text-3xl font-bold text-green-600 dark:text-green-400">{stats?.completedVaccines || 0}</p>
+              </CardContent>
+            </Card>
+          </div>
         )}
-      </div>
 
-      {/* Referral Section */}
-      <ReferralCard />
+        {/* Overdue Alert */}
+        {stats?.overdueVaccines ? (
+          <Card className="border-0 shadow-sm bg-red-50 dark:bg-red-950/20">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {stats.overdueVaccines} overdue vaccine{stats.overdueVaccines > 1 ? 's' : ''}
+                </p>
+                <p className="text-xs text-slate-600 dark:text-slate-400">Schedule them soon</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-slate-400" />
+            </CardContent>
+          </Card>
+        ) : null}
 
-      {/* Promoted Clinics */}
-      <div>
-        <h2 className="text-lg font-semibold text-foreground mb-4" data-testid="heading-promoted-clinics">
-          Featured Clinics in Your Area
-        </h2>
-        <ClinicAds />
-      </div>
+        {/* Quick Actions */}
+        <div className="flex gap-2">
+          <Link href="/children/add" className="flex-1">
+            <Button size="sm" className="w-full gap-2" data-testid="button-add-child">
+              <Plus className="h-4 w-4" />
+              Add Child
+            </Button>
+          </Link>
+          <Link href="/schedule" className="flex-1">
+            <Button size="sm" variant="outline" className="w-full gap-2" data-testid="button-view-schedule">
+              <Calendar className="h-4 w-4" />
+              Schedule
+            </Button>
+          </Link>
+        </div>
 
-      {/* Main Content Grid */}
-      <div className="grid lg:grid-cols-3 gap-6">
         {/* Children Section */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Your Children</h2>
+        <div className="space-y-3 pt-4">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="font-semibold text-slate-900 dark:text-white">Your Children</h2>
             <Link href="/children">
-              <Button variant="ghost" size="sm" className="gap-1" data-testid="button-view-all-children">
+              <Button variant="ghost" size="sm" data-testid="button-view-all-children">
                 View all
-                <ChevronRight className="h-4 w-4" />
               </Button>
             </Link>
           </div>
           
           {childrenLoading ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {[...Array(2)].map((_, i) => (
-                <Card key={i}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="h-14 w-14 rounded-full" />
-                      <div className="flex-1">
-                        <Skeleton className="h-5 w-32 mb-2" />
-                        <Skeleton className="h-4 w-48" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <Skeleton key={i} className="h-20 rounded-2xl" />
               ))}
             </div>
           ) : children && children.length > 0 ? (
-            <div className="space-y-4">
-              {children.slice(0, 3).map((child) => (
+            <div className="space-y-3">
+              {children.slice(0, 2).map((child) => (
                 <Link key={child.id} href={`/children/${child.id}`}>
-                  <ChildCard 
-                    child={child} 
-                    stats={child.stats}
-                  />
+                  <Card className="border-0 shadow-sm hover:shadow-md transition-all" data-testid={`card-child-${child.id}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-slate-900 dark:text-white">{child.firstName}</h3>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                            {child.stats.completed}/{child.stats.total} vaccines
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          {child.stats.overdue > 0 && (
+                            <Badge variant="destructive" className="text-xs">{child.stats.overdue} overdue</Badge>
+                          )}
+                          {child.stats.overdue === 0 && child.stats.upcoming > 0 && (
+                            <Badge className="text-xs">{child.stats.upcoming} upcoming</Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-3 w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                        <div 
+                          className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full"
+                          style={{ width: `${(child.stats.completed / child.stats.total) * 100}%` }}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
                 </Link>
               ))}
             </div>
           ) : (
-            <Card>
+            <Card className="border-0 shadow-sm">
               <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                  <Users className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">No children added yet</h3>
-                <p className="text-muted-foreground text-sm mb-4">
-                  Add your first child to start tracking their vaccinations
-                </p>
+                <Users className="h-12 w-12 text-slate-400 mx-auto mb-3" />
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">No children added yet</p>
                 <Link href="/children/add">
-                  <Button className="gap-2">
+                  <Button className="w-full gap-2">
                     <Plus className="h-4 w-4" />
-                    Add Child
+                    Add First Child
                   </Button>
                 </Link>
               </CardContent>
@@ -201,95 +225,54 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Upcoming Vaccinations */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Upcoming Vaccines</h2>
+        {/* Upcoming Vaccines */}
+        <div className="space-y-3 pt-4">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="font-semibold text-slate-900 dark:text-white">Next Vaccines</h2>
             <Link href="/schedule">
-              <Button variant="ghost" size="sm" className="gap-1" data-testid="button-view-schedule">
+              <Button variant="ghost" size="sm" data-testid="button-view-all-vaccines">
                 View all
-                <ChevronRight className="h-4 w-4" />
               </Button>
             </Link>
           </div>
           
           {vaccinesLoading ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {[...Array(3)].map((_, i) => (
-                <Card key={i}>
+                <Skeleton key={i} className="h-16 rounded-2xl" />
+              ))}
+            </div>
+          ) : upcomingVaccines && upcomingVaccines.length > 0 ? (
+            <div className="space-y-3">
+              {upcomingVaccines.slice(0, 3).map((vaccine) => (
+                <Card key={vaccine.id} className="border-0 shadow-sm" data-testid={`card-vaccine-${vaccine.id}`}>
                   <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="h-10 w-10 rounded-lg" />
-                      <div className="flex-1">
-                        <Skeleton className="h-4 w-24 mb-2" />
-                        <Skeleton className="h-3 w-32" />
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                        <Zap className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                       </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-sm text-slate-900 dark:text-white">{vaccine.vaccineName}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{vaccine.childName}</p>
+                      </div>
+                      <p className="text-xs font-medium text-slate-600 dark:text-slate-400 text-right">
+                        {Math.ceil((new Date(vaccine.scheduledDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
-          ) : upcomingVaccines && upcomingVaccines.length > 0 ? (
-            <div className="space-y-4">
-              {upcomingVaccines.slice(0, 5).map((vaccine) => (
-                <VaccinationCard
-                  key={vaccine.id}
-                  record={vaccine}
-                  showChild
-                />
-              ))}
-            </div>
           ) : (
-            <Card>
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
-                  <CalendarCheck className="h-6 w-6 text-green-600 dark:text-green-400" />
-                </div>
-                <h3 className="font-medium text-foreground mb-1">All caught up!</h3>
-                <p className="text-muted-foreground text-sm">
-                  No upcoming vaccines in the next 30 days
-                </p>
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-8 text-center">
+                <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                <p className="text-sm text-slate-600 dark:text-slate-400">All caught up!</p>
               </CardContent>
             </Card>
           )}
         </div>
       </div>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Quick Actions</CardTitle>
-          <CardDescription>Common tasks to manage your family's vaccinations</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Link href="/children/add">
-              <Button variant="outline" className="w-full h-auto py-4 flex-col gap-2">
-                <Users className="h-5 w-5" />
-                <span className="text-sm">Add Child</span>
-              </Button>
-            </Link>
-            <Link href="/schedule">
-              <Button variant="outline" className="w-full h-auto py-4 flex-col gap-2">
-                <Calendar className="h-5 w-5" />
-                <span className="text-sm">View Schedule</span>
-              </Button>
-            </Link>
-            <Link href="/notifications">
-              <Button variant="outline" className="w-full h-auto py-4 flex-col gap-2">
-                <Bell className="h-5 w-5" />
-                <span className="text-sm">Notifications</span>
-              </Button>
-            </Link>
-            <Link href="/settings">
-              <Button variant="outline" className="w-full h-auto py-4 flex-col gap-2">
-                <Syringe className="h-5 w-5" />
-                <span className="text-sm">Log Vaccine</span>
-              </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
