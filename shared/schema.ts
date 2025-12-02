@@ -325,6 +325,21 @@ export const phoneOtps = pgTable("phone_otps", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// SMS provider configuration for superadmin
+export const smsProviderConfig = pgTable("sms_provider_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: varchar("provider", { enum: ["twilio", "firebase"] }).default("firebase").notNull(),
+  twilioAccountSid: varchar("twilio_account_sid"),
+  twilioAuthToken: varchar("twilio_auth_token"),
+  twilioPhoneNumber: varchar("twilio_phone_number"),
+  twilioWhatsappNumber: varchar("twilio_whatsapp_number"),
+  firebaseProjectId: varchar("firebase_project_id"),
+  firebasePrivateKey: text("firebase_private_key"),
+  firebaseClientEmail: varchar("firebase_client_email"),
+  isActive: boolean("is_active").default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   children: many(children),
@@ -436,6 +451,11 @@ export const insertPhoneOtpSchema = createInsertSchema(phoneOtps).omit({
   createdAt: true,
 });
 
+export const insertSmsProviderConfigSchema = createInsertSchema(smsProviderConfig).omit({
+  id: true,
+  updatedAt: true,
+});
+
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
@@ -473,6 +493,8 @@ export type Referral = typeof referrals.$inferSelect;
 export type InsertReferral = z.infer<typeof insertReferralSchema>;
 export type PhoneOtp = typeof phoneOtps.$inferSelect;
 export type InsertPhoneOtp = z.infer<typeof insertPhoneOtpSchema>;
+export type SmsProviderConfig = typeof smsProviderConfig.$inferSelect;
+export type InsertSmsProviderConfig = z.infer<typeof insertSmsProviderConfigSchema>;
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;

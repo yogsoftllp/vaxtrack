@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { notificationService } from "./notificationService";
 import { sendSmsOtp, sendWhatsAppOtp } from "./twilioService";
+import { sendFirebaseOtp } from "./firebaseService";
 import { getScheduleForCountry } from "@shared/vaccinationData";
 import { insertChildSchema, insertVaccinationRecordSchema, pushSubscriptions, insertLandingPageBrandingSchema, clinics, insertAppointmentSlotSchema, insertAppointmentSchema, insertClinicAdvertisementSchema, insertReferralSchema } from "@shared/schema";
 import { db } from "./db";
@@ -822,9 +823,12 @@ export async function registerRoutes(
       if (!phone) return res.status(400).json({ message: "Phone required" });
       
       const { otp } = await storage.generateOtp(phone);
+      const config = await storage.getSmsConfig();
       
       let sent = false;
-      if (method === "whatsapp") {
+      if (config?.provider === "firebase" || !config) {
+        sent = await sendFirebaseOtp(phone, otp);
+      } else if (method === "whatsapp") {
         sent = await sendWhatsAppOtp(phone, otp);
       } else {
         sent = await sendSmsOtp(phone, otp);
@@ -838,6 +842,37 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error sending OTP:", error);
       res.status(500).json({ message: "Failed to send OTP" });
+    }
+  });
+
+  // Superadmin SMS configuration
+  app.get('/api/superadmin/sms-config', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (user?.role !== "superadmin") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      const config = await storage.getSmsConfig();
+      res.json(config || { provider: "firebase" });
+    } catch (error) {
+      console.error("Error fetching SMS config:", error);
+      res.status(500).json({ message: "Failed to fetch config" });
+    }
+  });
+
+  app.post('/api/superadmin/sms-config', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (user?.role !== "superadmin") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      const config = await storage.updateSmsConfig(req.body);
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating SMS config:", error);
+      res.status(500).json({ message: "Failed to update config" });
     }
   });
 

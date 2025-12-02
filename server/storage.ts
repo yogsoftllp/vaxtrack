@@ -16,6 +16,7 @@ import {
   clinicAdvertisements,
   referrals,
   phoneOtps,
+  smsProviderConfig,
   type User,
   type UpsertUser,
   type Child,
@@ -50,6 +51,8 @@ import {
   type InsertReferral,
   type PhoneOtp,
   type InsertPhoneOtp,
+  type SmsProviderConfig,
+  type InsertSmsProviderConfig,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql, isNull, or, lt } from "drizzle-orm";
@@ -151,6 +154,10 @@ export interface IStorage {
   // Clinic verification
   getPendingVerifications(): Promise<User[]>;
   verifyClinicalUser(userId: string, approvedBy: string, approved: boolean, notes?: string): Promise<void>;
+  
+  // SMS provider config
+  getSmsConfig(): Promise<SmsProviderConfig | undefined>;
+  updateSmsConfig(config: InsertSmsProviderConfig): Promise<SmsProviderConfig>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1112,6 +1119,24 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));
+  }
+
+  async getSmsConfig(): Promise<SmsProviderConfig | undefined> {
+    const [config] = await db
+      .select()
+      .from(smsProviderConfig)
+      .where(eq(smsProviderConfig.isActive, true))
+      .limit(1);
+    return config;
+  }
+
+  async updateSmsConfig(config: InsertSmsProviderConfig): Promise<SmsProviderConfig> {
+    await db.delete(smsProviderConfig);
+    const [newConfig] = await db
+      .insert(smsProviderConfig)
+      .values(config as any)
+      .returning();
+    return newConfig;
   }
 }
 
