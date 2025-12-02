@@ -11,6 +11,7 @@ import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
+import LandingMobile from "@/pages/landing-mobile";
 import Pricing from "@/pages/pricing";
 import Dashboard from "@/pages/dashboard";
 import Children from "@/pages/children";
@@ -75,7 +76,8 @@ function Router() {
     <Switch>
       {!isAuthenticated ? (
         <>
-          <Route path="/" component={Landing} />
+          <Route path="/" component={LandingMobile} />
+          <Route path="/landing-desktop" component={Landing} />
           <Route path="/pricing" component={Pricing} />
           <Route path="/clinic-login" component={ClinicLogin} />
           <Route path="/clinic/:domain" component={DomainClinicLogin} />
