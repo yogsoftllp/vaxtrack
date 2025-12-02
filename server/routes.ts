@@ -64,4 +64,29 @@ export function registerRoutes(app: Express) {
       res.status(500).json({ error: "Failed to fetch notifications" });
     }
   });
+
+  // User preferences
+  app.get("/api/user/preferences", async (req: any, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+      const user = await storage.getUser(req.user.id);
+      res.json(user || {});
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch preferences" });
+    }
+  });
+
+  // Update user preferences
+  app.patch("/api/user/preferences", async (req: any, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+      const { notificationPreferences } = req.body;
+      
+      // Update in storage
+      const updated = await storage.updateUserPreferences(req.user.id, notificationPreferences);
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update preferences" });
+    }
+  });
 }

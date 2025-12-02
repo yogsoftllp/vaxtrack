@@ -46,4 +46,11 @@ export const storage = {
       orderBy: { createdAt: "desc" },
     });
   },
+
+  async updateUserPreferences(userId: string, preferences: any) {
+    return db.user.update({
+      where: { id: userId },
+      data: { notificationPreferences: preferences },
+    });
+  },
 };
