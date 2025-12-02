@@ -32,13 +32,28 @@ Preferred communication style: Simple, everyday language.
 
 **PWA Features**:
 - Installable web app with manifest configuration
-- Mobile-first responsive design
+- Mobile-first responsive design (native app UI)
 - Service worker ready (configured for offline capability)
+- Push notifications with Web Push API
 
-**Key Design Decisions**:
-- Mobile-first approach optimized for one-handed use
-- Status-driven UI where vaccination status (overdue/upcoming/complete) is instantly recognizable
-- Card-based layouts with consistent spacing (Tailwind units: 2, 4, 6, 8, 12, 16)
+**Pages & Features**:
+- Parent Dashboard - Cards-based with Actions Required section
+- Children Management - Searchable list with progress tracking
+- Vaccination Schedule - Tabbed view (Upcoming/All) with color-coded status
+- Notifications Center - Stacked cards with read/unread indicators
+- Clinic Dashboard - Stats overview with patient management
+- Clinic Analytics - Performance metrics and trends
+- Appointment Booking - Date/time selection with nearby clinics
+- Push Notifications Setup - Web Push API subscription
+- Referral Rewards Dashboard - Progress tracking with gift rewards
+- FAQ Section - Collapsible FAQs on landing page
+
+**Accessibility Features**:
+- ARIA labels on interactive elements
+- Role attributes for dynamic content
+- Semantic HTML structure
+- Keyboard navigation support
+- High contrast color schemes
 
 ### Backend Architecture
 
@@ -61,12 +76,15 @@ Preferred communication style: Simple, everyday language.
 - Drizzle ORM for type-safe database queries
 - Schema-first approach with TypeScript type inference
 - Connection pooling via @neondatabase/serverless
+- Database indexes on frequently queried columns (users, children, vaccinations, appointments, notifications)
 
 **Business Logic Organization**:
 - Storage interface pattern (`server/storage.ts`) abstracting data operations
 - Vaccination schedule seeding from WHO-recommended data
 - Dashboard statistics aggregation
 - Notification management system
+- Clinic verification workflow
+- Referral system tracking
 
 ### Database Schema
 
@@ -79,6 +97,7 @@ Preferred communication style: Simple, everyday language.
    - Subscription tiers (free, family, clinic)
    - Notification preferences (SMS, push, email with customizable reminder days)
    - Location data (country, city) for schedule localization
+   - Referral code and successful referral tracking
 
 2. **children** - Child profiles
    - Belongs to parent users
@@ -99,7 +118,8 @@ Preferred communication style: Simple, everyday language.
 5. **clinics** - Healthcare provider profiles
    - Belongs to clinic-role users
    - Operating hours and location data
-   - Verification status
+   - Verification status (pending/approved/rejected)
+   - Verification notes and verified by admin
 
 6. **appointments** - Scheduled clinic visits
    - Links children, clinics, and vaccination records
@@ -116,12 +136,20 @@ Preferred communication style: Simple, everyday language.
 9. **sessions** - Authentication session storage
    - Required for Replit Auth integration
 
+10. **phone_otps** - OTP tracking for SMS/WhatsApp authentication
+    - Phone number, OTP code, expiry time
+    - Status tracking (pending, verified)
+
+**Performance Optimizations**:
+- Indexes on frequently queried columns (userId, childId, clinicId, status fields)
+- Session expiry index for cleanup
+- Email and phone number indexes for uniqueness
+
 **Schema Patterns**:
 - UUID primary keys with PostgreSQL `gen_random_uuid()`
 - Timestamps for created/updated tracking
 - JSONB for flexible metadata storage (notification preferences)
 - Foreign key relationships with referential integrity
-- Indexes on frequently queried columns (session expiration, user lookups)
 
 ### External Dependencies
 
@@ -138,9 +166,11 @@ Preferred communication style: Simple, everyday language.
 - PostgreSQL-backed session store
 - Environment variable: `SESSION_SECRET`
 
-**Email/SMS/Push Notifications** (infrastructure ready):
-- Schema supports multi-channel notifications
-- Implementation extensible for services like Twilio (SMS), SendGrid (email), Web Push API
+**Email/SMS/Push Notifications**:
+- Twilio (SMS/WhatsApp) - Ready for setup
+- Firebase Cloud Messaging (FCM) - Default SMS provider
+- Web Push API (Notifications) - Native browser support
+- Email (Nodemailer) - Ready for configuration
 
 **Vaccination Data**:
 - WHO-recommended schedules embedded in application (`shared/vaccinationData.ts`)
@@ -151,6 +181,7 @@ Preferred communication style: Simple, everyday language.
 - Google Fonts (Inter, Poppins) loaded via CDN
 - Radix UI primitives for accessible components
 - React Hook Form with Zod validation
+- Lucide React icons for consistent visual language
 
 **Build & Development**:
 - Vite for frontend bundling and HMR
@@ -158,64 +189,54 @@ Preferred communication style: Simple, everyday language.
 - TypeScript compilation with shared types
 - Replit-specific plugins for development experience
 
-**Deployment Considerations**:
-- Production build bundles allowed server dependencies to reduce cold start times
-- Static assets served from `dist/public`
-- Environment-based configuration (NODE_ENV)
-
 ## Recent Features (Current Session)
 
-### Quick Authentication System
-- **Multi-method login**: Gmail OAuth (via Replit Auth), SMS OTP, WhatsApp OTP
-- **Frontend**: QuickAuth component with tabbed interface for method selection
-- **Backend OTP flow**: Generate 6-digit code → send via SMS/WhatsApp → verify and auto-create user
-- **Database**: phoneOtps table tracks OTP with 10-minute expiry
-- **Location in code**: 
-  - Frontend: `client/src/components/quick-auth.tsx`
-  - Backend: `server/routes.ts` (/api/auth/send-otp, /api/auth/verify-otp)
-  - Service: `server/twilioService.ts`
+### Phase 1: Foundation & Authentication
+- Quick Authentication System (Gmail OAuth, SMS OTP, WhatsApp OTP)
+- Clinic Verification Workflow with admin approval
+- Referral System with Family Plan rewards
+- AI Clinic Advertisements targeting location-based parents
 
-### Clinic Verification Workflow
-- **Manual approval system**: Clinics sign up pending admin verification
-- **Admin dashboard**: `client/src/pages/admin-clinic-verification.tsx`
-- **Database fields**: clinicVerificationStatus (pending/approved/rejected), clinicVerificationNotes, clinicVerifiedBy, clinicVerifiedAt
-- **APIs**:
-  - GET `/api/admin/pending-clinic-verifications` - List pending clinics
-  - POST `/api/admin/verify-clinic` - Approve/reject with notes
-- **User fields**: authProvider tracks login method (google/phone/whatsapp/replit)
+### Phase 2: Mobile UI Transformation
+- **5 Critical Pages Redesigned** - Dashboard, children, schedule, notifications, clinic dashboard
+- Native app UI with Material Design 3 principles
+- Sticky headers, card-based layouts, color-coded status
+- Mobile-first responsive design optimized for one-handed use
 
-### Twilio Integration Status
-**PENDING USER SETUP**: User dismissed Twilio connector integration
-- System gracefully handles missing credentials (logs OTP to console in demo mode)
-- When ready, configure via Replit integrations or set env vars:
-  - TWILIO_ACCOUNT_SID
-  - TWILIO_AUTH_TOKEN
-  - TWILIO_PHONE_NUMBER (for SMS)
-  - TWILIO_WHATSAPP_NUMBER (for WhatsApp)
-- Implementation ready in `server/twilioService.ts` with functions:
-  - sendSmsOtp(phone, otp)
-  - sendWhatsAppOtp(phone, otp)
+### Phase 3: Feature Enhancements (Current)
+- ✅ **Vaccination Export & Sharing** - PDF download and social sharing for records
+- ✅ **Clinic Analytics Dashboard** - Performance metrics (completion rate, overdue tracking)
+- ✅ **Appointment Booking System** - Date/time selection with nearby clinic discovery
+- ✅ **Push Notifications Setup** - Web Push API integration for device notifications
+- ✅ **Referral Rewards Dashboard** - Progress visualization with gift incentives
+- ✅ **FAQ Section** - Collapsible FAQs on landing page
+- ✅ **Enhanced Settings** - Better notification preference controls
+- ✅ **Loading States** - Skeleton loaders for all data-fetching sections
+- ✅ **Accessibility** - ARIA labels, keyboard navigation, error boundaries
+- ✅ **Database Optimization** - Indexes for performance, pagination-ready
 
-### Referral System (Completed Earlier)
-- Parents get unique referral codes on dashboard
-- 5 successful referrals = automatic Family Plan upgrade
-- Frontend: `client/src/components/referral-card.tsx`
-- APIs: `/api/user/referral-stats`, `/api/user/claim-referral-reward`
-
-### AI Clinic Advertisements (Completed Earlier)
-- Free-plan clinics can create location-targeted ads
-- Appear on parent dashboard with impression/click tracking
-- Component: `client/src/components/clinic-ads.tsx`
+### Remaining/Planned Improvements
+- ⏳ Full Twilio integration setup (SMS/WhatsApp OTP)
+- ⏳ Code splitting for bundle optimization (currently 601KB)
+- ⏳ Sentry error tracking for production
+- ⏳ SMS campaign management for clinics
+- ⏳ Vaccine inventory management UI
+- ⏳ Email campaign templates
 
 ## Testing Features
 - SMS/WhatsApp OTP: Currently logs code to console (demo mode)
 - For actual SMS/WhatsApp: Complete Twilio integration setup
 - Clinic verification: Admin approves/rejects from dashboard
 - Referral codes: Copy from referral card, share with friends
+- Push notifications: Subscribe via settings or notifications page
+- Appointment booking: Browse clinics, select date/time
 
 ## Production Readiness
 - ✅ All TypeScript errors resolved
 - ✅ Database migrations applied
 - ✅ Zero build errors
 - ✅ App running on port 5000
-- ⏳ Twilio SMS/WhatsApp (waiting for user to set up integration)
+- ✅ Mobile-first UI complete
+- ✅ Core features implemented
+- ⏳ Twilio SMS/WhatsApp (waiting for user setup)
+- ⏳ Production error tracking (Sentry setup)

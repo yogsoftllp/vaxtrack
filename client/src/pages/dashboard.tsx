@@ -125,22 +125,27 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Overdue Alert */}
+        {/* Actions Required - Overdue Alert */}
         {stats?.overdueVaccines ? (
-          <Card className="border-0 shadow-sm bg-red-50 dark:bg-red-950/20">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="h-10 w-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {stats.overdueVaccines} overdue vaccine{stats.overdueVaccines > 1 ? 's' : ''}
-                </p>
-                <p className="text-xs text-slate-600 dark:text-slate-400">Schedule them soon</p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-slate-400" />
-            </CardContent>
-          </Card>
+          <div className="space-y-3">
+            <h3 className="font-semibold text-slate-900 dark:text-white px-1 text-sm">Actions Required</h3>
+            <Card className="border-0 shadow-sm bg-red-50 dark:bg-red-950/20">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {stats.overdueVaccines} overdue vaccine{stats.overdueVaccines > 1 ? 's' : ''}
+                  </p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">Schedule them ASAP</p>
+                </div>
+                <Link href="/schedule">
+                  <ChevronRight className="h-5 w-5 text-slate-400" />
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
         ) : null}
 
         {/* Quick Actions */}
@@ -173,7 +178,7 @@ export default function Dashboard() {
           {childrenLoading ? (
             <div className="space-y-3">
               {[...Array(2)].map((_, i) => (
-                <Skeleton key={i} className="h-20 rounded-2xl" />
+                <Skeleton key={i} className="h-20 rounded-2xl" aria-label="Loading children" />
               ))}
             </div>
           ) : children && children.length > 0 ? (

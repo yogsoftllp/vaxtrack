@@ -84,7 +84,7 @@ export default function Schedule() {
         {/* Upcoming Tab */}
         <TabsContent value="upcoming" className="space-y-3">
           {isLoading ? (
-            <div className="space-y-3">
+            <div className="space-y-3" role="status" aria-label="Loading vaccines">
               {[...Array(3)].map((_, i) => (
                 <Skeleton key={i} className="h-20 rounded-2xl" />
               ))}

@@ -66,7 +66,7 @@ export default function Notifications() {
       {/* Content */}
       <div className="px-4 max-w-md mx-auto w-full sm:max-w-2xl pt-4">
         {isLoading ? (
-          <div className="space-y-3">
+          <div className="space-y-3" role="status" aria-label="Loading notifications">
             {[...Array(5)].map((_, i) => (
               <Skeleton key={i} className="h-16 rounded-2xl" />
             ))}

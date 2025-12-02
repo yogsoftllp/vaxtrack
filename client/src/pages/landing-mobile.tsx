@@ -309,6 +309,34 @@ export default function LandingMobile() {
         </div>
       </section>
 
+      {/* FAQ Section */}
+      <section className="px-4 py-12 max-w-md mx-auto sm:max-w-2xl w-full">
+        <h2 className="text-2xl font-bold text-center mb-8" data-testid="heading-faq">
+          Frequently Asked Questions
+        </h2>
+
+        <div className="space-y-3">
+          {[
+            { q: "Is my child's data secure?", a: "Yes, we use bank-level encryption and comply with healthcare privacy regulations." },
+            { q: "Does it work offline?", a: "Yes, install as an app on your phone and access records without internet." },
+            { q: "Can I share records with clinics?", a: "Yes, generate shareable digital certificates for schools and travel." },
+            { q: "What vaccines are supported?", a: "140+ countries with WHO-recommended vaccination schedules." },
+            { q: "Is it free?", a: "Yes, free for up to 2 children. Premium plans available for families and clinics." },
+          ].map((item, idx) => (
+            <Card key={idx} className="border-0 shadow-sm" data-testid={`card-faq-${idx}`}>
+              <CardContent className="p-4">
+                <details className="cursor-pointer">
+                  <summary className="font-semibold text-slate-900 dark:text-white text-sm">
+                    {item.q}
+                  </summary>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-3">{item.a}</p>
+                </details>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
       {/* Footer - Mobile Simple */}
       <footer className="px-4 py-8 max-w-md mx-auto sm:max-w-2xl w-full border-t border-slate-200/50 dark:border-slate-800/50">
         <div className="text-center text-sm text-slate-600 dark:text-slate-400 space-y-3">

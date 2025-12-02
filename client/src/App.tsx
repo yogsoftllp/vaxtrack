@@ -8,6 +8,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
@@ -28,6 +29,9 @@ import LandingCustomization from "@/pages/landing-customization";
 import DomainClinicLogin from "@/pages/domain-clinic-login";
 import AIDashboard from "@/pages/ai-dashboard";
 import BookAppointment from "@/pages/book-appointment";
+import ClinicAnalytics from "@/pages/clinic-analytics";
+import AppointmentBooking from "@/pages/appointment-booking";
+import PushNotificationsSetup from "@/pages/push-notifications-setup";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -151,6 +155,21 @@ function Router() {
               <BookAppointment />
             </AuthenticatedLayout>
           </Route>
+          <Route path="/analytics">
+            <AuthenticatedLayout>
+              <ClinicAnalytics />
+            </AuthenticatedLayout>
+          </Route>
+          <Route path="/appointment-booking">
+            <AuthenticatedLayout>
+              <AppointmentBooking />
+            </AuthenticatedLayout>
+          </Route>
+          <Route path="/push-notifications">
+            <AuthenticatedLayout>
+              <PushNotificationsSetup />
+            </AuthenticatedLayout>
+          </Route>
           <Route>
             <AuthenticatedLayout>
               <NotFound />
@@ -164,15 +183,17 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="system">
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-          <PWAInstallPrompt />
-        </TooltipProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider defaultTheme="system">
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+            <PWAInstallPrompt />
+          </TooltipProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
