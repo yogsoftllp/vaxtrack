@@ -249,6 +249,19 @@ export const landingPageBranding = pgTable("landing_page_branding", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Vaccine pricing by clinic
+export const vaccinePricing = pgTable("vaccine_pricing", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicId: varchar("clinic_id").notNull().references(() => clinics.id, { onDelete: "cascade" }),
+  vaccineCode: varchar("vaccine_code").notNull(),
+  vaccineName: varchar("vaccine_name").notNull(),
+  price: integer("price").notNull(), // Price in cents for precision
+  currency: varchar("currency").default("USD"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   children: many(children),
@@ -392,9 +405,17 @@ export const insertLandingPageBrandingSchema = createInsertSchema(landingPageBra
   updatedAt: true,
 });
 
+export const insertVaccinePricingSchema = createInsertSchema(vaccinePricing).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type InsertSystemConfiguration = z.infer<typeof insertSystemConfigurationSchema>;
 export type InsertClinicBranding = z.infer<typeof insertClinicBrandingSchema>;
 export type InsertUserClinicAssociation = z.infer<typeof insertUserClinicAssociationSchema>;
 export type InsertLandingPageBranding = z.infer<typeof insertLandingPageBrandingSchema>;
+export type InsertVaccinePricing = z.infer<typeof insertVaccinePricingSchema>;
 export type LandingPageBranding = typeof landingPageBranding.$inferSelect;
 export type UserClinicAssociation = typeof userClinicAssociation.$inferSelect;
+export type VaccinePricing = typeof vaccinePricing.$inferSelect;

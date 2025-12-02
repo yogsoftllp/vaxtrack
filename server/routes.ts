@@ -616,5 +616,52 @@ export async function registerRoutes(
     }
   });
 
+  // AI Dashboard - Near by clinics and pricing
+  app.get('/api/dashboard/nearby-clinics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.city || !user?.country) {
+        return res.json({ message: "Location not set", clinics: [] });
+      }
+
+      const nearbyClinics = await storage.getNearByClinics(user.city, user.country);
+      res.json(nearbyClinics);
+    } catch (error) {
+      console.error("Error fetching nearby clinics:", error);
+      res.status(500).json({ message: "Failed to fetch nearby clinics" });
+    }
+  });
+
+  app.get('/api/clinic/:clinicId/vaccine-pricing', async (req: any, res) => {
+    try {
+      const { clinicId } = req.params;
+      const pricing = await storage.getVaccinePricing(clinicId);
+      res.json(pricing);
+    } catch (error) {
+      console.error("Error fetching vaccine pricing:", error);
+      res.status(500).json({ message: "Failed to fetch pricing" });
+    }
+  });
+
+  app.post('/api/clinic/:clinicId/vaccine-pricing', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== "clinic" && user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { clinicId } = req.params;
+      const pricing = await storage.upsertVaccinePricing(clinicId, req.body);
+      res.json(pricing);
+    } catch (error) {
+      console.error("Error updating vaccine pricing:", error);
+      res.status(500).json({ message: "Failed to update pricing" });
+    }
+  });
+
   return httpServer;
 }

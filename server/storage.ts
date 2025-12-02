@@ -11,6 +11,7 @@ import {
   clinicBranding,
   userClinicAssociation,
   landingPageBranding,
+  vaccinePricing,
   type User,
   type UpsertUser,
   type Child,
@@ -35,6 +36,8 @@ import {
   type InsertLandingPageBranding,
   type UserClinicAssociation,
   type InsertUserClinicAssociation,
+  type VaccinePricing,
+  type InsertVaccinePricing,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql, isNull, or, lt } from "drizzle-orm";
@@ -104,6 +107,11 @@ export interface IStorage {
   addUserToClinic(userId: string, clinicId: string, role: string): Promise<UserClinicAssociation>;
   removeUserFromClinic(userId: string, clinicId: string): Promise<boolean>;
   getUserClinicAssociations(userId: string): Promise<UserClinicAssociation[]>;
+  
+  // Clinic search and pricing
+  getNearByClinics(city: string, country: string): Promise<any[]>;
+  getVaccinePricing(clinicId: string): Promise<VaccinePricing[]>;
+  upsertVaccinePricing(clinicId: string, pricing: InsertVaccinePricing): Promise<VaccinePricing>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -700,6 +708,82 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(userClinicAssociation)
       .where(eq(userClinicAssociation.userId, userId));
+  }
+
+  // Clinic search and pricing
+  async getNearByClinics(city: string, country: string): Promise<any[]> {
+    const clinicList = await db
+      .select({
+        id: clinics.id,
+        name: clinics.name,
+        city: clinics.city,
+        country: clinics.country,
+        address: clinics.address,
+        phone: clinics.phone,
+        email: clinics.email,
+        website: clinics.website,
+      })
+      .from(clinics)
+      .where(and(
+        eq(clinics.city, city),
+        eq(clinics.country, country),
+        eq(clinics.verified, true)
+      ));
+
+    // Enrich with branding and pricing
+    const enrichedClinics = await Promise.all(
+      clinicList.map(async (clinic) => {
+        const brandingData = await this.getClinicBranding(clinic.id);
+        const pricing = await this.getVaccinePricing(clinic.id);
+        return {
+          ...clinic,
+          branding: brandingData,
+          vaccinePricing: pricing,
+          priceRange: pricing.length > 0
+            ? {
+                min: Math.min(...pricing.map(p => p.price)) / 100,
+                max: Math.max(...pricing.map(p => p.price)) / 100,
+                currency: pricing[0]?.currency || "USD"
+              }
+            : null
+        };
+      })
+    );
+
+    return enrichedClinics;
+  }
+
+  async getVaccinePricing(clinicId: string): Promise<VaccinePricing[]> {
+    return await db
+      .select()
+      .from(vaccinePricing)
+      .where(eq(vaccinePricing.clinicId, clinicId));
+  }
+
+  async upsertVaccinePricing(clinicId: string, pricingData: InsertVaccinePricing): Promise<VaccinePricing> {
+    const existing = await db
+      .select()
+      .from(vaccinePricing)
+      .where(and(
+        eq(vaccinePricing.clinicId, clinicId),
+        eq(vaccinePricing.vaccineCode, pricingData.vaccineCode || "")
+      ))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const [updated] = await db
+        .update(vaccinePricing)
+        .set({ ...pricingData, updatedAt: new Date() })
+        .where(eq(vaccinePricing.id, existing[0].id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(vaccinePricing)
+        .values({ clinicId, ...pricingData } as any)
+        .returning();
+      return created;
+    }
   }
 }
 

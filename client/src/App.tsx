@@ -25,6 +25,7 @@ import ClinicBranding from "@/pages/clinic-branding";
 import ClinicLogin from "@/pages/clinic-login";
 import LandingCustomization from "@/pages/landing-customization";
 import DomainClinicLogin from "@/pages/domain-clinic-login";
+import AIDashboard from "@/pages/ai-dashboard";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -135,6 +136,11 @@ function Router() {
           <Route path="/admin/landing-customization">
             <AuthenticatedLayout>
               <LandingCustomization />
+            </AuthenticatedLayout>
+          </Route>
+          <Route path="/clinics">
+            <AuthenticatedLayout>
+              <AIDashboard />
             </AuthenticatedLayout>
           </Route>
           <Route>
