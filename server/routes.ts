@@ -412,5 +412,109 @@ export async function registerRoutes(
     }
   });
 
+  // Admin routes - System configuration
+  app.get('/api/admin/configuration', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (user?.role !== "superadmin" && user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const config = await storage.getSystemConfiguration();
+      res.json(config || {});
+    } catch (error) {
+      console.error("Error fetching configuration:", error);
+      res.status(500).json({ message: "Failed to fetch configuration" });
+    }
+  });
+
+  app.post('/api/admin/configuration', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (user?.role !== "superadmin") {
+        return res.status(403).json({ message: "Only superadmin can modify configuration" });
+      }
+
+      const config = await storage.updateSystemConfiguration(req.body);
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating configuration:", error);
+      res.status(500).json({ message: "Failed to update configuration" });
+    }
+  });
+
+  // Clinic branding routes
+  app.get('/api/admin/clinic/:clinicId/branding', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const clinic = await storage.getClinicForUser(userId);
+
+      if (user?.role === "clinic" && (!clinic || clinic.id !== req.params.clinicId)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      if (user?.role !== "superadmin" && user?.role !== "admin" && user?.role !== "clinic") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const branding = await storage.getClinicBranding(req.params.clinicId);
+      res.json(branding || {});
+    } catch (error) {
+      console.error("Error fetching branding:", error);
+      res.status(500).json({ message: "Failed to fetch branding" });
+    }
+  });
+
+  app.post('/api/admin/clinic/:clinicId/branding', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const clinic = await storage.getClinicForUser(userId);
+
+      if (user?.role === "clinic" && (!clinic || clinic.id !== req.params.clinicId)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      if (user?.role !== "superadmin" && user?.role !== "admin" && user?.role !== "clinic") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const branding = await storage.updateClinicBranding(req.params.clinicId, req.body);
+      res.json(branding);
+    } catch (error) {
+      console.error("Error updating branding:", error);
+      res.status(500).json({ message: "Failed to update branding" });
+    }
+  });
+
+  // Bulk vaccination update
+  app.post('/api/clinic/vaccinations/bulk-update', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user?.role !== "clinic" && user?.role !== "admin") {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { vaccinationIds, status } = req.body;
+      if (!vaccinationIds || !Array.isArray(vaccinationIds) || !status) {
+        return res.status(400).json({ message: "Invalid request" });
+      }
+
+      const success = await storage.bulkUpdateVaccinations(vaccinationIds, status);
+      
+      if (success) {
+        res.json({ success: true, updated: vaccinationIds.length });
+      } else {
+        res.status(500).json({ message: "Failed to bulk update vaccinations" });
+      }
+    } catch (error) {
+      console.error("Error bulk updating vaccinations:", error);
+      res.status(500).json({ message: "Failed to bulk update vaccinations" });
+    }
+  });
+
   return httpServer;
 }

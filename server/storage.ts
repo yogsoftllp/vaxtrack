@@ -521,6 +521,80 @@ export class DatabaseStorage implements IStorage {
       completedVaccines: completedCount,
     };
   }
+
+  // Admin operations
+  async getSystemConfiguration(): Promise<SystemConfiguration | undefined> {
+    const config = await db.query.systemConfiguration.findFirst();
+    return config;
+  }
+
+  async updateSystemConfiguration(config: InsertSystemConfiguration): Promise<SystemConfiguration | undefined> {
+    const existing = await this.getSystemConfiguration();
+    
+    if (existing) {
+      const [updated] = await db
+        .update(systemConfiguration)
+        .set({ ...config, updatedAt: new Date() })
+        .where(eq(systemConfiguration.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(systemConfiguration)
+        .values(config)
+        .returning();
+      return created;
+    }
+  }
+
+  async getClinicBranding(clinicId: string): Promise<ClinicBranding | undefined> {
+    const branding = await db.query.clinicBranding.findFirst({
+      where: eq(clinicBranding.clinicId, clinicId),
+    });
+    return branding;
+  }
+
+  async updateClinicBranding(clinicId: string, branding: InsertClinicBranding): Promise<ClinicBranding | undefined> {
+    const existing = await this.getClinicBranding(clinicId);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(clinicBranding)
+        .set({ ...branding, updatedAt: new Date() })
+        .where(eq(clinicBranding.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(clinicBranding)
+        .values({ clinicId, ...branding })
+        .returning();
+      return created;
+    }
+  }
+
+  async bulkUpdateVaccinations(vaccinationIds: string[], status: string): Promise<boolean> {
+    try {
+      await db
+        .update(vaccinationRecords)
+        .set({ 
+          status: status as any,
+          administeredDate: status === "completed" ? new Date().toISOString().split('T')[0] : null,
+          updatedAt: new Date()
+        })
+        .where(
+          and(
+            vaccinationIds.length > 0 
+              ? sql`id = ANY(${vaccinationIds})`
+              : sql`false`
+          )
+        );
+      return true;
+    } catch (error) {
+      console.error("Error bulk updating vaccinations:", error);
+      return false;
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();

@@ -20,6 +20,8 @@ import Schedule from "@/pages/schedule";
 import Notifications from "@/pages/notifications";
 import Settings from "@/pages/settings";
 import ClinicDashboard from "@/pages/clinic-dashboard";
+import AdminSettings from "@/pages/admin-settings";
+import ClinicBranding from "@/pages/clinic-branding";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -113,6 +115,16 @@ function Router() {
           <Route path="/clinic">
             <AuthenticatedLayout>
               <ClinicDashboard />
+            </AuthenticatedLayout>
+          </Route>
+          <Route path="/admin/settings">
+            <AuthenticatedLayout>
+              <AdminSettings />
+            </AuthenticatedLayout>
+          </Route>
+          <Route path="/admin/clinic/:clinicId/branding">
+            <AuthenticatedLayout>
+              <ClinicBranding />
             </AuthenticatedLayout>
           </Route>
           <Route>
