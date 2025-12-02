@@ -7,6 +7,8 @@ import {
   appointments,
   notifications,
   pushSubscriptions,
+  systemConfiguration,
+  clinicBranding,
   type User,
   type UpsertUser,
   type Child,
@@ -23,6 +25,10 @@ import {
   type InsertNotification,
   type PushSubscription,
   type InsertPushSubscription,
+  type SystemConfiguration,
+  type ClinicBranding,
+  type InsertSystemConfiguration,
+  type InsertClinicBranding,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql, isNull, or, lt } from "drizzle-orm";
@@ -73,6 +79,13 @@ export interface IStorage {
     overdueVaccines: number;
     completedVaccines: number;
   }>;
+
+  // Admin operations
+  getSystemConfiguration(): Promise<SystemConfiguration | undefined>;
+  updateSystemConfiguration(config: InsertSystemConfiguration): Promise<SystemConfiguration | undefined>;
+  getClinicBranding(clinicId: string): Promise<ClinicBranding | undefined>;
+  updateClinicBranding(clinicId: string, branding: InsertClinicBranding): Promise<ClinicBranding | undefined>;
+  bulkUpdateVaccinations(vaccinationIds: string[], status: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {

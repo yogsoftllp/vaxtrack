@@ -31,7 +31,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role", { enum: ["parent", "clinic", "admin"] }).default("parent").notNull(),
+  role: varchar("role", { enum: ["parent", "clinic", "admin", "superadmin"] }).default("parent").notNull(),
   subscriptionTier: varchar("subscription_tier", { enum: ["free", "family", "clinic"] }).default("free").notNull(),
   country: varchar("country"),
   city: varchar("city"),
@@ -159,12 +159,82 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Global system configuration (SMS, Payment, Feature toggles)
+export const systemConfiguration = pgTable("system_configuration", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  smsProvider: varchar("sms_provider", { enum: ["twilio", "fireball"] }).default("twilio"),
+  smsApiKey: varchar("sms_api_key"),
+  smsApiSecret: varchar("sms_api_secret"),
+  smsSenderId: varchar("sms_sender_id"),
+  pushProvider: varchar("push_provider", { enum: ["web", "onesignal", "fireball"] }).default("web"),
+  pushApiKey: varchar("push_api_key"),
+  paymentProvider: varchar("payment_provider", { enum: ["stripe", "razorpay", "paypal"] }).default("stripe"),
+  paymentApiKey: varchar("payment_api_key"),
+  paymentApiSecret: varchar("payment_api_secret"),
+  featuresEnabled: jsonb("features_enabled").$type<{
+    smsNotifications: boolean;
+    pushNotifications: boolean;
+    emailNotifications: boolean;
+    payments: boolean;
+    vaccinationCertificates: boolean;
+    multiChild: boolean;
+    clinicDashboard: boolean;
+    analytics: boolean;
+  }>().default({
+    smsNotifications: true,
+    pushNotifications: true,
+    emailNotifications: true,
+    payments: false,
+    vaccinationCertificates: false,
+    multiChild: true,
+    clinicDashboard: true,
+    analytics: true,
+  }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Clinic-specific branding and configuration
+export const clinicBranding = pgTable("clinic_branding", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicId: varchar("clinic_id").notNull().references(() => clinics.id, { onDelete: "cascade" }),
+  logoUrl: varchar("logo_url"),
+  primaryColor: varchar("primary_color").default("#1f2937"),
+  secondaryColor: varchar("secondary_color").default("#3b82f6"),
+  loginPageText: text("login_page_text"),
+  dashboardTitle: varchar("dashboard_title"),
+  reportFooterText: text("report_footer_text"),
+  featuresEnabled: jsonb("features_enabled").$type<{
+    smsNotifications: boolean;
+    pushNotifications: boolean;
+    emailNotifications: boolean;
+    payments: boolean;
+    bulkVaccinationUpdate: boolean;
+  }>().default({
+    smsNotifications: true,
+    pushNotifications: true,
+    emailNotifications: true,
+    payments: false,
+    bulkVaccinationUpdate: true,
+  }),
+  customSmsProvider: varchar("custom_sms_provider"),
+  customSmsApiKey: varchar("custom_sms_api_key"),
+  customPaymentProvider: varchar("custom_payment_provider"),
+  customPaymentApiKey: varchar("custom_payment_api_key"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many, one }) => ({
   children: many(children),
   notifications: many(notifications),
   pushSubscriptions: many(pushSubscriptions),
   clinic: one(clinics),
+}));
+
+export const clinicsRelations2 = relations(clinics, ({ one, many }) => ({
+  branding: one(clinicBranding),
 }));
 
 export const childrenRelations = relations(children, ({ one, many }) => ({
@@ -265,3 +335,22 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
+
+export type SystemConfiguration = typeof systemConfiguration.$inferSelect;
+export type ClinicBranding = typeof clinicBranding.$inferSelect;
+
+// Insert schemas
+export const insertSystemConfigurationSchema = createInsertSchema(systemConfiguration).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertClinicBrandingSchema = createInsertSchema(clinicBranding).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSystemConfiguration = z.infer<typeof insertSystemConfigurationSchema>;
+export type InsertClinicBranding = z.infer<typeof insertClinicBrandingSchema>;
