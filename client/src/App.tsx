@@ -6,6 +6,7 @@ import VaccinationRecords from "./pages/vaccination-records";
 import ReferralRewards from "./pages/referral-rewards";
 import ClinicAnalytics from "./pages/clinic-analytics";
 import AppointmentBooking from "./pages/appointment-booking";
+import Login from "./pages/login";
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -15,20 +16,18 @@ export default function App() {
   useEffect(() => {
     fetch("/api/auth/user")
       .then((res) => res.json())
-      .then(setUser)
+      .then((data) => {
+        if (data?.id) {
+          setUser(data);
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   
   if (!user?.id) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <a href="/auth/login" className="px-4 py-2 bg-blue-600 text-white rounded">
-          Login
-        </a>
-      </div>
-    );
+    return <Login onLoginSuccess={() => setUser({ id: "loading" })} />;
   }
 
   // Route rendering
