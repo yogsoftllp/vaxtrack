@@ -225,12 +225,35 @@ export const clinicBranding = pgTable("clinic_branding", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// User-Clinic Association (Multi-clinic support)
+export const userClinicAssociation = pgTable("user_clinic_association", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  clinicId: varchar("clinic_id").notNull().references(() => clinics.id, { onDelete: "cascade" }),
+  role: varchar("role", { enum: ["owner", "admin", "doctor", "staff"] }).default("owner").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Landing Page Branding (Superadmin customization for parent landing page)
+export const landingPageBranding = pgTable("landing_page_branding", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  logoUrl: varchar("logo_url"),
+  headerText: varchar("header_text").default("VaxTrack"),
+  headerDescription: text("header_description").default("Smart vaccination management for parents and clinics worldwide"),
+  primaryColor: varchar("primary_color").default("#3b82f6"),
+  secondaryColor: varchar("secondary_color").default("#1f2937"),
+  footerText: text("footer_text"),
+  featuredImageUrl: varchar("featured_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
-export const usersRelations = relations(users, ({ many, one }) => ({
+export const usersRelations = relations(users, ({ many }) => ({
   children: many(children),
   notifications: many(notifications),
   pushSubscriptions: many(pushSubscriptions),
-  clinic: one(clinics),
+  clinicAssociations: many(userClinicAssociation),
 }));
 
 export const clinicsRelations2 = relations(clinics, ({ one, many }) => ({
@@ -249,10 +272,15 @@ export const vaccinationRecordsRelations = relations(vaccinationRecords, ({ one 
   clinic: one(clinics, { fields: [vaccinationRecords.clinicId], references: [clinics.id] }),
 }));
 
-export const clinicsRelations = relations(clinics, ({ one, many }) => ({
-  user: one(users, { fields: [clinics.userId], references: [users.id] }),
+export const clinicsRelations = relations(clinics, ({ many }) => ({
   vaccinationRecords: many(vaccinationRecords),
   appointments: many(appointments),
+  userAssociations: many(userClinicAssociation),
+}));
+
+export const userClinicAssociationRelations = relations(userClinicAssociation, ({ one }) => ({
+  user: one(users, { fields: [userClinicAssociation.userId], references: [users.id] }),
+  clinic: one(clinics, { fields: [userClinicAssociation.clinicId], references: [clinics.id] }),
 }));
 
 export const appointmentsRelations = relations(appointments, ({ one }) => ({
@@ -352,5 +380,20 @@ export const insertClinicBrandingSchema = createInsertSchema(clinicBranding).omi
   updatedAt: true,
 });
 
+export const insertUserClinicAssociationSchema = createInsertSchema(userClinicAssociation).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLandingPageBrandingSchema = createInsertSchema(landingPageBranding).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type InsertSystemConfiguration = z.infer<typeof insertSystemConfigurationSchema>;
 export type InsertClinicBranding = z.infer<typeof insertClinicBrandingSchema>;
+export type InsertUserClinicAssociation = z.infer<typeof insertUserClinicAssociationSchema>;
+export type InsertLandingPageBranding = z.infer<typeof insertLandingPageBrandingSchema>;
+export type LandingPageBranding = typeof landingPageBranding.$inferSelect;
+export type UserClinicAssociation = typeof userClinicAssociation.$inferSelect;
