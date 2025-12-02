@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route } from "wouter";
 import { Suspense, lazy } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -91,17 +91,18 @@ function Router() {
   }
 
   return (
-    <Switch>
-      {!isAuthenticated ? (
-        <>
-          <Route path="/" component={LandingMobile} />
-          <Route path="/landing-desktop" component={Landing} />
-          <Route path="/pricing" component={Pricing} />
-          <Route path="/clinic-login" component={ClinicLogin} />
-          <Route path="/clinic/:domain" component={DomainClinicLogin} />
-          <Route component={NotFound} />
-        </>
-      ) : (
+    <Suspense fallback={<PageLoader />}>
+      <Switch>
+        {!isAuthenticated ? (
+          <>
+            <Route path="/" component={LandingMobile} />
+            <Route path="/landing-desktop" component={Landing} />
+            <Route path="/pricing" component={Pricing} />
+            <Route path="/clinic-login" component={ClinicLogin} />
+            <Route path="/clinic/:domain" component={DomainClinicLogin} />
+            <Route component={NotFound} />
+          </>
+        ) : (
         <>
           <Route path="/">
             <AuthenticatedLayout>
@@ -190,8 +191,9 @@ function Router() {
             </AuthenticatedLayout>
           </Route>
         </>
-      )}
-    </Switch>
+        )}
+      </Switch>
+    </Suspense>
   );
 }
 
