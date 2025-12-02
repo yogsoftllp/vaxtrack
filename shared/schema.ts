@@ -356,6 +356,105 @@ export const clinicAnalytics = pgTable("clinic_analytics", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Vaccination certificates
+export const vaccinationCertificates = pgTable("vaccination_certificates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  childId: varchar("child_id").notNull().references(() => children.id, { onDelete: "cascade" }),
+  certificateNumber: varchar("certificate_number").unique().notNull(),
+  issuedBy: varchar("issued_by").notNull().references(() => clinics.id, { onDelete: "restrict" }),
+  vaccinesIncluded: jsonb("vaccines_included").$type<string[]>().notNull(),
+  validFrom: date("valid_from").notNull(),
+  validUntil: date("valid_until"),
+  language: varchar("language").default("en"),
+  pdfUrl: text("pdf_url"),
+  status: varchar("status", { enum: ["draft", "issued", "revoked"] }).default("issued"),
+  createdAt: timestamp("created_at").defaultNow(),
+  issuedAt: timestamp("issued_at"),
+});
+
+// Email/SMS campaign templates and tracking
+export const campaigns = pgTable("campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicId: varchar("clinic_id").notNull().references(() => clinics.id, { onDelete: "cascade" }),
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  channels: jsonb("channels").$type<("sms" | "email")[]>().notNull(),
+  targetAudience: varchar("target_audience", { enum: ["all", "overdue", "upcoming", "new"] }).default("all"),
+  status: varchar("status", { enum: ["draft", "scheduled", "sent", "cancelled"] }).default("draft"),
+  scheduledFor: timestamp("scheduled_for"),
+  sentAt: timestamp("sent_at"),
+  totalRecipients: integer("total_recipients").default(0),
+  openRate: integer("open_rate").default(0),
+  clickRate: integer("click_rate").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Campaign recipient tracking
+export const campaignRecipients = pgTable("campaign_recipients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: varchar("status", { enum: ["pending", "sent", "opened", "clicked", "failed"] }).default("pending"),
+  sentAt: timestamp("sent_at"),
+  openedAt: timestamp("opened_at"),
+  clickedAt: timestamp("clicked_at"),
+});
+
+// Vaccine inventory tracking
+export const vaccineInventory = pgTable("vaccine_inventory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicId: varchar("clinic_id").notNull().references(() => clinics.id, { onDelete: "cascade" }),
+  vaccineName: varchar("vaccine_name").notNull(),
+  batchNumber: varchar("batch_number").notNull(),
+  manufacturer: varchar("manufacturer"),
+  lotNumber: varchar("lot_number"),
+  expiryDate: date("expiry_date").notNull(),
+  quantity: integer("quantity").notNull(),
+  costPerDose: integer("cost_per_dose"), // in cents
+  receivedDate: date("received_date").notNull(),
+  storageLocation: varchar("storage_location"),
+  temperature: varchar("temperature").default("2-8°C"),
+  status: varchar("status", { enum: ["active", "expired", "recalled"] }).default("active"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Vaccine usage tracking (deductions from inventory)
+export const vaccineUsage = pgTable("vaccine_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  inventoryId: varchar("inventory_id").notNull().references(() => vaccineInventory.id, { onDelete: "restrict" }),
+  recordId: varchar("record_id").notNull().references(() => vaccinationRecords.id, { onDelete: "cascade" }),
+  quantity: integer("quantity").default(1),
+  usedAt: timestamp("used_at").defaultNow(),
+});
+
+// Payment transactions (Stripe integration)
+export const payments = pgTable("payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicId: varchar("clinic_id").references(() => clinics.id, { onDelete: "set null" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  appointmentId: varchar("appointment_id").references(() => appointments.id, { onDelete: "set null" }),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id").unique(),
+  amount: integer("amount").notNull(), // in cents
+  currency: varchar("currency").default("USD"),
+  description: text("description"),
+  type: varchar("type", { enum: ["appointment", "vaccine", "deposit", "copay"] }).default("appointment"),
+  status: varchar("status", { enum: ["pending", "succeeded", "failed", "cancelled"] }).default("pending"),
+  paymentMethod: varchar("payment_method"),
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+// Language preferences per user
+export const userLanguagePreferences = pgTable("user_language_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  language: varchar("language").default("en").notNull(),
+  region: varchar("region"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   children: many(children),
@@ -477,6 +576,46 @@ export const insertClinicAnalyticsSchema = createInsertSchema(clinicAnalytics).o
   createdAt: true,
 });
 
+export const insertVaccinationCertificateSchema = createInsertSchema(vaccinationCertificates).omit({
+  id: true,
+  createdAt: true,
+  issuedAt: true,
+});
+
+export const insertCampaignSchema = createInsertSchema(campaigns).omit({
+  id: true,
+  createdAt: true,
+  sentAt: true,
+});
+
+export const insertCampaignRecipientSchema = createInsertSchema(campaignRecipients).omit({
+  id: true,
+  sentAt: true,
+  openedAt: true,
+  clickedAt: true,
+});
+
+export const insertVaccineInventorySchema = createInsertSchema(vaccineInventory).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertVaccineUsageSchema = createInsertSchema(vaccineUsage).omit({
+  id: true,
+});
+
+export const insertPaymentSchema = createInsertSchema(payments).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+
+export const insertUserLanguagePreferenceSchema = createInsertSchema(userLanguagePreferences).omit({
+  id: true,
+  updatedAt: true,
+});
+
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
@@ -518,6 +657,20 @@ export type SmsProviderConfig = typeof smsProviderConfig.$inferSelect;
 export type InsertSmsProviderConfig = z.infer<typeof insertSmsProviderConfigSchema>;
 export type ClinicAnalytics = typeof clinicAnalytics.$inferSelect;
 export type InsertClinicAnalytics = z.infer<typeof insertClinicAnalyticsSchema>;
+export type VaccinationCertificate = typeof vaccinationCertificates.$inferSelect;
+export type InsertVaccinationCertificate = z.infer<typeof insertVaccinationCertificateSchema>;
+export type Campaign = typeof campaigns.$inferSelect;
+export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
+export type CampaignRecipient = typeof campaignRecipients.$inferSelect;
+export type InsertCampaignRecipient = z.infer<typeof insertCampaignRecipientSchema>;
+export type VaccineInventory = typeof vaccineInventory.$inferSelect;
+export type InsertVaccineInventory = z.infer<typeof insertVaccineInventorySchema>;
+export type VaccineUsage = typeof vaccineUsage.$inferSelect;
+export type InsertVaccineUsage = z.infer<typeof insertVaccineUsageSchema>;
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type UserLanguagePreference = typeof userLanguagePreferences.$inferSelect;
+export type InsertUserLanguagePreference = z.infer<typeof insertUserLanguagePreferenceSchema>;
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;

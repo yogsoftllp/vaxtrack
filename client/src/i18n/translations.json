@@ -1,0 +1,108 @@
+{
+  "en": {
+    "common": {
+      "language": "Language",
+      "english": "English",
+      "spanish": "Español",
+      "french": "Français",
+      "portuguese": "Português",
+      "hindi": "हिंदी",
+      "arabic": "العربية",
+      "chinese": "中文",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit"
+    },
+    "certificates": {
+      "title": "Vaccination Certificates",
+      "generate": "Generate Certificate",
+      "download": "Download PDF",
+      "validFrom": "Valid From",
+      "validUntil": "Valid Until",
+      "vaccinesIncluded": "Vaccines Included",
+      "certificateNumber": "Certificate #"
+    },
+    "campaigns": {
+      "title": "Campaign Manager",
+      "create": "Create Campaign",
+      "sendSms": "Send SMS",
+      "sendEmail": "Send Email",
+      "schedule": "Schedule",
+      "targetAudience": "Target Audience"
+    },
+    "inventory": {
+      "title": "Vaccine Inventory",
+      "addStock": "Add Stock",
+      "batchNumber": "Batch #",
+      "expiryDate": "Expiry Date",
+      "quantity": "Quantity",
+      "lowStock": "Low Stock Alert"
+    },
+    "payments": {
+      "title": "Payments",
+      "amount": "Amount",
+      "status": "Status",
+      "paymentMethod": "Payment Method",
+      "checkout": "Checkout"
+    }
+  },
+  "es": {
+    "common": {
+      "language": "Idioma",
+      "english": "English",
+      "spanish": "Español",
+      "save": "Guardar",
+      "cancel": "Cancelar"
+    },
+    "certificates": {
+      "title": "Certificados de Vacunación",
+      "generate": "Generar Certificado",
+      "download": "Descargar PDF"
+    }
+  },
+  "fr": {
+    "common": {
+      "language": "Langue",
+      "french": "Français",
+      "save": "Enregistrer",
+      "cancel": "Annuler"
+    },
+    "certificates": {
+      "title": "Certificats de Vaccination",
+      "generate": "Générer Certificat"
+    }
+  },
+  "pt": {
+    "common": {
+      "language": "Idioma",
+      "portuguese": "Português",
+      "save": "Salvar",
+      "cancel": "Cancelar"
+    }
+  },
+  "hi": {
+    "common": {
+      "language": "भाषा",
+      "hindi": "हिंदी",
+      "save": "सहेजें",
+      "cancel": "रद्द करें"
+    }
+  },
+  "ar": {
+    "common": {
+      "language": "اللغة",
+      "arabic": "العربية",
+      "save": "حفظ",
+      "cancel": "إلغاء"
+    }
+  },
+  "zh": {
+    "common": {
+      "language": "语言",
+      "chinese": "中文",
+      "save": "保存",
+      "cancel": "取消"
+    }
+  }
+}
