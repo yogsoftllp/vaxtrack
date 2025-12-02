@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/stat-card";
 import { ChildCard } from "@/components/child-card";
 import { VaccinationCard } from "@/components/vaccination-card";
+import { ClinicAds } from "@/components/clinic-ads";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   Users, 

@@ -13,6 +13,7 @@ import {
   userClinicAssociation,
   landingPageBranding,
   vaccinePricing,
+  clinicAdvertisements,
   type User,
   type UpsertUser,
   type Child,
@@ -41,6 +42,8 @@ import {
   type InsertVaccinePricing,
   type AppointmentSlot,
   type InsertAppointmentSlot,
+  type ClinicAdvertisement,
+  type InsertClinicAdvertisement,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql, isNull, or, lt } from "drizzle-orm";
@@ -121,6 +124,12 @@ export interface IStorage {
   createSlot(slot: InsertAppointmentSlot): Promise<AppointmentSlot>;
   bookSlot(slotId: string, appointment: Partial<InsertAppointment>): Promise<Appointment>;
   updateSlotAvailability(slotId: string): Promise<void>;
+  
+  // Clinic advertisements
+  getFreeClinicAds(city: string, country: string, limit?: number): Promise<ClinicAdvertisement[]>;
+  createClinicAd(ad: InsertClinicAdvertisement): Promise<ClinicAdvertisement>;
+  trackAdImpression(adId: string): Promise<void>;
+  trackAdClick(adId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -871,6 +880,68 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date(),
         })
         .where(eq(appointmentSlots.id, slotId));
+    }
+  }
+
+  // Clinic advertisements for free-plan clinics
+  async getFreeClinicAds(city: string, country: string, limit: number = 3): Promise<ClinicAdvertisement[]> {
+    return await db
+      .select()
+      .from(clinicAdvertisements)
+      .innerJoin(clinics, eq(clinicAdvertisements.clinicId, clinics.id))
+      .where(and(
+        eq(clinics.city, city),
+        eq(clinics.country, country),
+        eq(clinics.subscriptionTier, "free"),
+        eq(clinicAdvertisements.isActive, true),
+        sql`${clinicAdvertisements.endDate} IS NULL OR ${clinicAdvertisements.endDate} > NOW()`
+      ))
+      .orderBy(sql`RANDOM()`)
+      .limit(limit)
+      .then(results => results.map(r => r.clinic_advertisements));
+  }
+
+  async createClinicAd(adData: InsertClinicAdvertisement): Promise<ClinicAdvertisement> {
+    const [ad] = await db
+      .insert(clinicAdvertisements)
+      .values(adData as any)
+      .returning();
+    return ad;
+  }
+
+  async trackAdImpression(adId: string): Promise<void> {
+    const ad = await db
+      .select()
+      .from(clinicAdvertisements)
+      .where(eq(clinicAdvertisements.id, adId))
+      .limit(1);
+
+    if (ad && ad.length > 0) {
+      await db
+        .update(clinicAdvertisements)
+        .set({
+          impressions: ad[0].impressions + 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(clinicAdvertisements.id, adId));
+    }
+  }
+
+  async trackAdClick(adId: string): Promise<void> {
+    const ad = await db
+      .select()
+      .from(clinicAdvertisements)
+      .where(eq(clinicAdvertisements.id, adId))
+      .limit(1);
+
+    if (ad && ad.length > 0) {
+      await db
+        .update(clinicAdvertisements)
+        .set({
+          clicks: ad[0].clicks + 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(clinicAdvertisements.id, adId));
     }
   }
 }

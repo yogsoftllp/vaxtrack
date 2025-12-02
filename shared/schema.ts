@@ -108,6 +108,7 @@ export const clinics = pgTable("clinics", {
   email: varchar("email"),
   website: varchar("website"),
   customDomain: varchar("custom_domain").unique(),
+  subscriptionTier: varchar("subscription_tier", { enum: ["free", "family", "clinic"] }).default("free").notNull(),
   operatingHours: jsonb("operating_hours").$type<{
     monday?: { open: string; close: string };
     tuesday?: { open: string; close: string };
@@ -277,6 +278,25 @@ export const vaccinePricing = pgTable("vaccine_pricing", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Clinic advertisements (for free-plan clinics)
+export const clinicAdvertisements = pgTable("clinic_advertisements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicId: varchar("clinic_id").notNull().references(() => clinics.id, { onDelete: "cascade" }),
+  title: varchar("title").notNull(),
+  description: text("description").notNull(),
+  bannerImageUrl: varchar("banner_image_url"),
+  ctaText: varchar("cta_text").default("Book Now"),
+  ctaLink: varchar("cta_link"),
+  highlightText: varchar("highlight_text"), // e.g., "Free consultation"
+  impressions: integer("impressions").default(0),
+  clicks: integer("clicks").default(0),
+  isActive: boolean("is_active").default(true),
+  startDate: timestamp("start_date").defaultNow(),
+  endDate: timestamp("end_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   children: many(children),
@@ -369,6 +389,14 @@ export const insertAppointmentSlotSchema = createInsertSchema(appointmentSlots).
   updatedAt: true,
 });
 
+export const insertClinicAdvertisementSchema = createInsertSchema(clinicAdvertisements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  impressions: true,
+  clicks: true,
+});
+
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
@@ -400,6 +428,8 @@ export type Appointment = typeof appointments.$inferSelect;
 export type AppointmentSlot = typeof appointmentSlots.$inferSelect;
 export type InsertAppointmentSlot = z.infer<typeof insertAppointmentSlotSchema>;
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
+export type ClinicAdvertisement = typeof clinicAdvertisements.$inferSelect;
+export type InsertClinicAdvertisement = z.infer<typeof insertClinicAdvertisementSchema>;
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;

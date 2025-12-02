@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { notificationService } from "./notificationService";
 import { getScheduleForCountry } from "@shared/vaccinationData";
-import { insertChildSchema, insertVaccinationRecordSchema, pushSubscriptions, insertLandingPageBrandingSchema, clinics, insertAppointmentSlotSchema, insertAppointmentSchema } from "@shared/schema";
+import { insertChildSchema, insertVaccinationRecordSchema, pushSubscriptions, insertLandingPageBrandingSchema, clinics, insertAppointmentSlotSchema, insertAppointmentSchema, insertClinicAdvertisementSchema } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -714,6 +714,68 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error booking appointment:", error);
       res.status(500).json({ message: (error as any).message || "Failed to book appointment" });
+    }
+  });
+
+  // Clinic advertisements for free-plan clinics
+  app.get('/api/dashboard/ads', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.city || !user?.country) {
+        return res.json([]);
+      }
+
+      const ads = await storage.getFreeClinicAds(user.city, user.country, 3);
+      res.json(ads);
+    } catch (error) {
+      console.error("Error fetching ads:", error);
+      res.status(500).json({ message: "Failed to fetch ads" });
+    }
+  });
+
+  app.post('/api/ads/:adId/impression', isAuthenticated, async (req: any, res) => {
+    try {
+      const { adId } = req.params;
+      await storage.trackAdImpression(adId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error tracking impression:", error);
+      res.status(500).json({ message: "Failed to track impression" });
+    }
+  });
+
+  app.post('/api/ads/:adId/click', isAuthenticated, async (req: any, res) => {
+    try {
+      const { adId } = req.params;
+      await storage.trackAdClick(adId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error tracking click:", error);
+      res.status(500).json({ message: "Failed to track click" });
+    }
+  });
+
+  app.post('/api/clinic/create-ad', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const clinic = await storage.getClinicForUser(userId);
+
+      if (!clinic || clinic.subscriptionTier !== "free") {
+        return res.status(403).json({ message: "Only free-plan clinics can create ads" });
+      }
+
+      const validated = insertClinicAdvertisementSchema.parse({
+        ...req.body,
+        clinicId: clinic.id,
+      });
+      const ad = await storage.createClinicAd(validated);
+      res.json(ad);
+    } catch (error) {
+      console.error("Error creating ad:", error);
+      res.status(500).json({ message: "Failed to create ad" });
     }
   });
 
