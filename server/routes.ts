@@ -977,5 +977,180 @@ export async function registerRoutes(
     }
   });
 
+  // Vaccination Certificates
+  app.post('/api/certificates', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const cert = await storage.createCertificate(req.body);
+      res.json(cert);
+    } catch (error) {
+      console.error("Error creating certificate:", error);
+      res.status(500).json({ message: "Failed to create certificate" });
+    }
+  });
+
+  app.get('/api/certificates/:childId', isAuthenticated, async (req: any, res) => {
+    try {
+      const certs = await storage.getCertificates(req.params.childId);
+      res.json(certs);
+    } catch (error) {
+      console.error("Error fetching certificates:", error);
+      res.status(500).json({ message: "Failed to fetch certificates" });
+    }
+  });
+
+  // Campaign Management
+  app.post('/api/campaigns', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const clinic = await storage.getClinicForUser(userId);
+      if (!clinic) return res.status(403).json({ message: "Unauthorized" });
+      
+      const campaign = await storage.createCampaign({
+        ...req.body,
+        clinicId: clinic.id,
+      });
+      res.json(campaign);
+    } catch (error) {
+      console.error("Error creating campaign:", error);
+      res.status(500).json({ message: "Failed to create campaign" });
+    }
+  });
+
+  app.get('/api/campaigns', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const clinic = await storage.getClinicForUser(userId);
+      if (!clinic) return res.status(403).json({ message: "Unauthorized" });
+      
+      const campaigns = await storage.getCampaigns(clinic.id);
+      res.json(campaigns);
+    } catch (error) {
+      console.error("Error fetching campaigns:", error);
+      res.status(500).json({ message: "Failed to fetch campaigns" });
+    }
+  });
+
+  app.post('/api/campaigns/:campaignId/send', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { campaignId } = req.params;
+      const campaign = await storage.getCampaignById(campaignId);
+      if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+      
+      await storage.sendCampaign(campaignId);
+      res.json({ message: "Campaign sent" });
+    } catch (error) {
+      console.error("Error sending campaign:", error);
+      res.status(500).json({ message: "Failed to send campaign" });
+    }
+  });
+
+  // Vaccine Inventory
+  app.post('/api/inventory', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const clinic = await storage.getClinicForUser(userId);
+      if (!clinic) return res.status(403).json({ message: "Unauthorized" });
+      
+      const inventory = await storage.addInventoryStock({
+        ...req.body,
+        clinicId: clinic.id,
+      });
+      res.json(inventory);
+    } catch (error) {
+      console.error("Error adding inventory:", error);
+      res.status(500).json({ message: "Failed to add inventory" });
+    }
+  });
+
+  app.get('/api/inventory', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const clinic = await storage.getClinicForUser(userId);
+      if (!clinic) return res.status(403).json({ message: "Unauthorized" });
+      
+      const inventory = await storage.getInventory(clinic.id);
+      res.json(inventory);
+    } catch (error) {
+      console.error("Error fetching inventory:", error);
+      res.status(500).json({ message: "Failed to fetch inventory" });
+    }
+  });
+
+  app.patch('/api/inventory/:inventoryId/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const { inventoryId } = req.params;
+      const { status } = req.body;
+      await storage.updateInventoryStatus(inventoryId, status);
+      res.json({ message: "Inventory status updated" });
+    } catch (error) {
+      console.error("Error updating inventory:", error);
+      res.status(500).json({ message: "Failed to update inventory" });
+    }
+  });
+
+  // Payments
+  app.post('/api/payments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const payment = await storage.createPayment({
+        ...req.body,
+        userId,
+      });
+      res.json(payment);
+    } catch (error) {
+      console.error("Error creating payment:", error);
+      res.status(500).json({ message: "Failed to create payment" });
+    }
+  });
+
+  app.get('/api/payments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const payments = await storage.getPayments(userId);
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching payments:", error);
+      res.status(500).json({ message: "Failed to fetch payments" });
+    }
+  });
+
+  app.patch('/api/payments/:paymentId/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const { paymentId } = req.params;
+      const { status } = req.body;
+      await storage.updatePaymentStatus(paymentId, status);
+      res.json({ message: "Payment status updated" });
+    } catch (error) {
+      console.error("Error updating payment:", error);
+      res.status(500).json({ message: "Failed to update payment" });
+    }
+  });
+
+  // Language Preferences
+  app.post('/api/user/language-preference', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { language, region } = req.body;
+      const pref = await storage.setLanguagePreference(userId, language, region);
+      res.json(pref);
+    } catch (error) {
+      console.error("Error setting language preference:", error);
+      res.status(500).json({ message: "Failed to set language preference" });
+    }
+  });
+
+  app.get('/api/user/language-preference', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const pref = await storage.getLanguagePreference(userId);
+      res.json(pref || { language: 'en' });
+    } catch (error) {
+      console.error("Error fetching language preference:", error);
+      res.status(500).json({ message: "Failed to fetch language preference" });
+    }
+  });
+
   return httpServer;
 }

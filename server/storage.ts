@@ -18,6 +18,13 @@ import {
   phoneOtps,
   smsProviderConfig,
   clinicAnalytics,
+  vaccinationCertificates,
+  campaigns,
+  campaignRecipients,
+  vaccineInventory,
+  vaccineUsage,
+  payments,
+  userLanguagePreferences,
   type User,
   type UpsertUser,
   type Child,
@@ -56,6 +63,20 @@ import {
   type InsertSmsProviderConfig,
   type ClinicAnalytics,
   type InsertClinicAnalytics,
+  type VaccinationCertificate,
+  type InsertVaccinationCertificate,
+  type Campaign,
+  type InsertCampaign,
+  type CampaignRecipient,
+  type InsertCampaignRecipient,
+  type VaccineInventory,
+  type InsertVaccineInventory,
+  type VaccineUsage,
+  type InsertVaccineUsage,
+  type Payment,
+  type InsertPayment,
+  type UserLanguagePreference,
+  type InsertUserLanguagePreference,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql, isNull, or, lt } from "drizzle-orm";
@@ -165,6 +186,36 @@ export interface IStorage {
   // Clinic reports
   getClinicReport(clinicId: string, days: number): Promise<any>;
   recordClinicAnalytics(data: InsertClinicAnalytics): Promise<ClinicAnalytics>;
+  
+  // Vaccination certificates
+  createCertificate(cert: InsertVaccinationCertificate): Promise<VaccinationCertificate>;
+  getCertificates(childId: string): Promise<VaccinationCertificate[]>;
+  getCertificateById(id: string): Promise<VaccinationCertificate | undefined>;
+  
+  // Campaigns
+  createCampaign(campaign: InsertCampaign): Promise<Campaign>;
+  getCampaigns(clinicId: string): Promise<Campaign[]>;
+  getCampaignById(id: string): Promise<Campaign | undefined>;
+  sendCampaign(campaignId: string): Promise<void>;
+  recordCampaignRecipient(recipient: InsertCampaignRecipient): Promise<CampaignRecipient>;
+  trackCampaignOpen(recipientId: string): Promise<void>;
+  
+  // Vaccine inventory
+  addInventoryStock(inventory: InsertVaccineInventory): Promise<VaccineInventory>;
+  getInventory(clinicId: string): Promise<VaccineInventory[]>;
+  getInventoryById(id: string): Promise<VaccineInventory | undefined>;
+  deductInventory(inventoryId: string, quantity: number, recordId: string): Promise<void>;
+  updateInventoryStatus(id: string, status: string): Promise<void>;
+  
+  // Payments
+  createPayment(payment: InsertPayment): Promise<Payment>;
+  getPayments(userId: string): Promise<Payment[]>;
+  getPaymentById(id: string): Promise<Payment | undefined>;
+  updatePaymentStatus(id: string, status: string): Promise<void>;
+  
+  // Language preferences
+  setLanguagePreference(userId: string, language: string, region?: string): Promise<UserLanguagePreference>;
+  getLanguagePreference(userId: string): Promise<UserLanguagePreference | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1186,6 +1237,134 @@ export class DatabaseStorage implements IStorage {
       .values(data as any)
       .returning();
     return analytics;
+  }
+
+  // Vaccination certificates
+  async createCertificate(cert: InsertVaccinationCertificate): Promise<VaccinationCertificate> {
+    const [certificate] = await db
+      .insert(vaccinationCertificates)
+      .values(cert as any)
+      .returning();
+    return certificate;
+  }
+
+  async getCertificates(childId: string): Promise<VaccinationCertificate[]> {
+    return db.select().from(vaccinationCertificates).where(eq(vaccinationCertificates.childId, childId));
+  }
+
+  async getCertificateById(id: string): Promise<VaccinationCertificate | undefined> {
+    const [cert] = await db.select().from(vaccinationCertificates).where(eq(vaccinationCertificates.id, id));
+    return cert;
+  }
+
+  // Campaigns
+  async createCampaign(campaign: InsertCampaign): Promise<Campaign> {
+    const [c] = await db.insert(campaigns).values(campaign as any).returning();
+    return c;
+  }
+
+  async getCampaigns(clinicId: string): Promise<Campaign[]> {
+    return db.select().from(campaigns).where(eq(campaigns.clinicId, clinicId));
+  }
+
+  async getCampaignById(id: string): Promise<Campaign | undefined> {
+    const [c] = await db.select().from(campaigns).where(eq(campaigns.id, id));
+    return c;
+  }
+
+  async sendCampaign(campaignId: string): Promise<void> {
+    await db
+      .update(campaigns)
+      .set({ status: "sent", sentAt: new Date() })
+      .where(eq(campaigns.id, campaignId));
+  }
+
+  async recordCampaignRecipient(recipient: InsertCampaignRecipient): Promise<CampaignRecipient> {
+    const [r] = await db.insert(campaignRecipients).values(recipient as any).returning();
+    return r;
+  }
+
+  async trackCampaignOpen(recipientId: string): Promise<void> {
+    await db
+      .update(campaignRecipients)
+      .set({ status: "opened", openedAt: new Date() })
+      .where(eq(campaignRecipients.id, recipientId));
+  }
+
+  // Vaccine inventory
+  async addInventoryStock(inventory: InsertVaccineInventory): Promise<VaccineInventory> {
+    const [inv] = await db.insert(vaccineInventory).values(inventory as any).returning();
+    return inv;
+  }
+
+  async getInventory(clinicId: string): Promise<VaccineInventory[]> {
+    return db.select().from(vaccineInventory).where(eq(vaccineInventory.clinicId, clinicId));
+  }
+
+  async getInventoryById(id: string): Promise<VaccineInventory | undefined> {
+    const [inv] = await db.select().from(vaccineInventory).where(eq(vaccineInventory.id, id));
+    return inv;
+  }
+
+  async deductInventory(inventoryId: string, quantity: number, recordId: string): Promise<void> {
+    const inv = await this.getInventoryById(inventoryId);
+    if (inv) {
+      await db
+        .update(vaccineInventory)
+        .set({ quantity: Math.max(0, inv.quantity - quantity) })
+        .where(eq(vaccineInventory.id, inventoryId));
+      
+      await db.insert(vaccineUsage).values({ inventoryId, recordId, quantity } as any);
+    }
+  }
+
+  async updateInventoryStatus(id: string, status: string): Promise<void> {
+    await db.update(vaccineInventory).set({ status: status as any }).where(eq(vaccineInventory.id, id));
+  }
+
+  // Payments
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const [p] = await db.insert(payments).values(payment as any).returning();
+    return p;
+  }
+
+  async getPayments(userId: string): Promise<Payment[]> {
+    return db.select().from(payments).where(eq(payments.userId, userId));
+  }
+
+  async getPaymentById(id: string): Promise<Payment | undefined> {
+    const [p] = await db.select().from(payments).where(eq(payments.id, id));
+    return p;
+  }
+
+  async updatePaymentStatus(id: string, status: string): Promise<void> {
+    await db.update(payments).set({ status: status as any, completedAt: new Date() }).where(eq(payments.id, id));
+  }
+
+  // Language preferences
+  async setLanguagePreference(userId: string, language: string, region?: string): Promise<UserLanguagePreference> {
+    const existing = await this.getLanguagePreference(userId);
+    if (existing) {
+      const [pref] = await db
+        .update(userLanguagePreferences)
+        .set({ language, region, updatedAt: new Date() })
+        .where(eq(userLanguagePreferences.userId, userId))
+        .returning();
+      return pref;
+    }
+    const [pref] = await db
+      .insert(userLanguagePreferences)
+      .values({ userId, language, region } as any)
+      .returning();
+    return pref;
+  }
+
+  async getLanguagePreference(userId: string): Promise<UserLanguagePreference | undefined> {
+    const [pref] = await db
+      .select()
+      .from(userLanguagePreferences)
+      .where(eq(userLanguagePreferences.userId, userId));
+    return pref;
   }
 }
 
