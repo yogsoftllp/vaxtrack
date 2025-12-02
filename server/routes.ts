@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { notificationService } from "./notificationService";
 import { getScheduleForCountry } from "@shared/vaccinationData";
 import { insertChildSchema, insertVaccinationRecordSchema } from "@shared/schema";
 import { z } from "zod";
@@ -143,7 +144,7 @@ export async function registerRoutes(
       }
       
       // Create a welcome notification
-      await storage.createNotification({
+      await notificationService.sendInAppNotification({
         userId,
         type: "system",
         title: `${child.firstName}'s schedule created`,
@@ -235,10 +236,24 @@ export async function registerRoutes(
   app.patch('/api/vaccinations/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
+      const oldRecord = await storage.getVaccinationRecordById(id);
       const record = await storage.updateVaccinationRecord(id, req.body);
       
       if (!record) {
         return res.status(404).json({ message: "Record not found" });
+      }
+
+      // Send notification if vaccine was just marked as completed
+      if (oldRecord && !oldRecord.administeredDate && req.body.administeredDate) {
+        const child = await storage.getChild(record.childId);
+        if (child) {
+          await notificationService.sendInAppNotification({
+            userId: child.userId,
+            type: "system",
+            title: `${record.vaccineName} completed`,
+            message: `${record.vaccineName} has been recorded for ${child.firstName}. Great job staying on schedule!`,
+          });
+        }
       }
       
       res.json(record);

@@ -46,6 +46,7 @@ export interface IStorage {
   
   // Vaccination record operations
   getVaccinationRecords(childId: string): Promise<VaccinationRecord[]>;
+  getVaccinationRecordById(id: string): Promise<VaccinationRecord | undefined>;
   getVaccinationRecordsByUser(userId: string): Promise<VaccinationRecord[]>;
   getUpcomingVaccinations(userId: string, days?: number): Promise<VaccinationRecord[]>;
   createVaccinationRecord(record: InsertVaccinationRecord): Promise<VaccinationRecord>;
@@ -153,6 +154,11 @@ export class DatabaseStorage implements IStorage {
       .from(vaccinationRecords)
       .where(eq(vaccinationRecords.childId, childId))
       .orderBy(vaccinationRecords.scheduledDate);
+  }
+
+  async getVaccinationRecordById(id: string): Promise<VaccinationRecord | undefined> {
+    const [record] = await db.select().from(vaccinationRecords).where(eq(vaccinationRecords.id, id));
+    return record;
   }
 
   async getVaccinationRecordsByUser(userId: string): Promise<VaccinationRecord[]> {
