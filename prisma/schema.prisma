@@ -1,0 +1,95 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id    String     @id @default(cuid())
+  email String?    @unique
+  firstName String?
+  lastName String?
+  phone String?    @unique
+  role  String     @default("parent") // parent, clinic, admin
+  country String?
+  city  String?
+  notificationPreferences Json @default("{\"sms\": true, \"push\": true, \"email\": true, \"reminderDays\": [7, 3, 1]}")
+  
+  children Child[]
+  notifications Notification[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Child {
+  id    String     @id @default(cuid())
+  userId String
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  firstName String
+  lastName  String?
+  dateOfBirth DateTime
+  gender    String?   // male, female, other
+  country   String
+  bloodType String?
+  allergies String?
+  notes     String?
+  
+  vaccinationRecords VaccinationRecord[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VaccinationSchedule {
+  id    String     @id @default(cuid())
+  country String
+  vaccineName String
+  vaccineCode String
+  doseNumber Int
+  ageInDays Int
+  ageDescription String
+  mandatory Boolean @default(true)
+}
+
+model VaccinationRecord {
+  id    String     @id @default(cuid())
+  childId String
+  child Child      @relation(fields: [childId], references: [id], onDelete: Cascade)
+  
+  scheduleId String?
+  vaccineName String
+  doseNumber Int
+  scheduledDate DateTime
+  administeredDate DateTime?
+  status String @default("scheduled") // scheduled, completed, overdue, skipped
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id    String     @id @default(cuid())
+  userId String
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type  String // reminder, appointment, overdue, system
+  title String
+  message String
+  read  Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+}
+
+model Session {
+  sid String @id
+  sess Json
+  expire DateTime
+  
+  @@index([expire])
+}

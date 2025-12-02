@@ -1,6 +1,5 @@
 import { Express } from "express";
 import { storage } from "./storage";
-import { insertChildSchema } from "@shared/schema";
 import { z } from "zod";
 
 export function registerRoutes(app: Express) {
@@ -9,7 +8,7 @@ export function registerRoutes(app: Express) {
     try {
       if (!req.user) return res.status(401).json({ error: "Unauthorized" });
       const user = await storage.getUser(req.user.id);
-      res.json(user || {});
+      res.json(user || { id: req.user.id, firstName: req.user.firstName });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch user" });
     }
@@ -41,8 +40,14 @@ export function registerRoutes(app: Express) {
   app.post("/api/children", async (req: any, res) => {
     try {
       if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-      const validated = insertChildSchema.parse(req.body);
-      const child = await storage.addChild(req.user.id, validated);
+      const { firstName, lastName, dateOfBirth, gender, country } = req.body;
+      const child = await storage.addChild(req.user.id, {
+        firstName,
+        lastName,
+        dateOfBirth: new Date(dateOfBirth),
+        gender,
+        country,
+      });
       res.json(child);
     } catch (error) {
       res.status(400).json({ error: "Invalid child data" });

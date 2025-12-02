@@ -1,48 +1,45 @@
 import { Express } from "express";
 import session from "express-session";
-import ConnectPgSimple from "connect-pg-simple";
-import { Pool } from "@neondatabase/serverless";
-import postgres from "postgres";
-
-const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL_NON_POOLING;
+import { PrismaSessionStore } from "@quixo3/prisma-session-store";
+import { db } from "./db";
 
 export async function setupAuth(app: Express) {
-  const pgSession = ConnectPgSimple(session);
-  
-  // Use Neon pool for Replit, or create connection for Vercel
-  let pool: any;
-  if (process.env.DATABASE_URL?.includes("neon")) {
-    pool = new Pool({ connectionString: databaseUrl });
-  } else {
-    // Vercel Postgres - create a simple pool-like object
-    const client = postgres(databaseUrl || "");
-    pool = client;
-  }
+  // Create sessions table if needed
+  await db.session.deleteMany({
+    where: {
+      expire: {
+        lt: new Date(),
+      },
+    },
+  });
 
   app.use(
     session({
-      store: new pgSession({ pool }),
+      store: new PrismaSessionStore(db, {
+        checkPeriod: 2 * 60 * 1000,
+        dbRecordIdIsSessionId: true,
+      }),
       secret: process.env.SESSION_SECRET || "dev-secret",
       resave: false,
       saveUninitialized: false,
-      cookie: { secure: false, httpOnly: true },
+      cookie: { secure: false, httpOnly: true, maxAge: 24 * 60 * 60 * 1000 },
     })
   );
 
-  // Mock auth middleware
+  // Mock auth endpoints
   app.get("/auth/login", (req: any, res) => {
-    req.session.user = { id: "test-user", firstName: "Test" };
-    res.redirect("/");
+    req.session.user = { id: "test-user-1", firstName: "Test User" };
+    req.session.save(() => res.redirect("/"));
   });
 
   app.get("/auth/logout", (req: any, res) => {
-    req.session.user = null;
-    res.redirect("/");
+    req.session.destroy(() => res.redirect("/"));
   });
 
+  // Pass user to routes
   app.use((req: any, res, next) => {
     if (req.session?.user) {
-      res.setHeader("x-user-id", req.session.user.id);
+      (req as any).user = req.session.user;
     }
     next();
   });

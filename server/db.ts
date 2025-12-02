@@ -1,12 +1,11 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { PrismaClient } from "@prisma/client";
 
-// Support both Vercel Postgres and Replit Postgres
-const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL_NON_POOLING;
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL or POSTGRES_URL_NON_POOLING is required");
-}
+export const db =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+  });
 
-const client = postgres(databaseUrl);
-export const db = drizzle(client);
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
