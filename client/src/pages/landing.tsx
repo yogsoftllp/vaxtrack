@@ -24,7 +24,8 @@ import {
   ChevronDown
 } from "lucide-react";
 import { Link } from "wouter";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 const features = [
   {
@@ -111,6 +112,13 @@ const faqItems = [
 
 export default function Landing() {
   const [openFaq, setOpenFaq] = useState(0);
+  const { data: branding } = useQuery({
+    queryKey: ["/api/public/landing-branding"],
+  });
+
+  const logoUrl = branding?.logoUrl;
+  const headerText = branding?.headerText || "VaxTrack";
+  const primaryColor = branding?.primaryColor || "#3b82f6";
 
   return (
     <div className="min-h-screen bg-background">
@@ -118,10 +126,14 @@ export default function Landing() {
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-              <Syringe className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="font-semibold text-xl text-foreground" data-testid="text-logo">VaxTrack</span>
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="h-9 w-9 rounded-lg object-contain" data-testid="img-custom-logo" />
+            ) : (
+              <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
+                <Syringe className="h-5 w-5 text-primary-foreground" />
+              </div>
+            )}
+            <span className="font-semibold text-xl text-foreground" data-testid="text-logo">{headerText}</span>
           </div>
           
           <nav className="hidden md:flex items-center gap-8">

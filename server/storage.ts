@@ -9,6 +9,8 @@ import {
   pushSubscriptions,
   systemConfiguration,
   clinicBranding,
+  userClinicAssociation,
+  landingPageBranding,
   type User,
   type UpsertUser,
   type Child,
@@ -29,6 +31,10 @@ import {
   type ClinicBranding,
   type InsertSystemConfiguration,
   type InsertClinicBranding,
+  type LandingPageBranding,
+  type InsertLandingPageBranding,
+  type UserClinicAssociation,
+  type InsertUserClinicAssociation,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql, isNull, or, lt } from "drizzle-orm";
@@ -86,6 +92,17 @@ export interface IStorage {
   getClinicBranding(clinicId: string): Promise<ClinicBranding | undefined>;
   updateClinicBranding(clinicId: string, branding: InsertClinicBranding): Promise<ClinicBranding | undefined>;
   bulkUpdateVaccinations(vaccinationIds: string[], status: string): Promise<boolean>;
+  
+  // Landing page branding (Superadmin)
+  getLandingPageBranding(): Promise<LandingPageBranding | undefined>;
+  updateLandingPageBranding(branding: InsertLandingPageBranding): Promise<LandingPageBranding | undefined>;
+  
+  // Multi-clinic support
+  getClinicByName(name: string): Promise<Clinic | undefined>;
+  getUserClinics(userId: string): Promise<Clinic[]>;
+  addUserToClinic(userId: string, clinicId: string, role: string): Promise<UserClinicAssociation>;
+  removeUserFromClinic(userId: string, clinicId: string): Promise<boolean>;
+  getUserClinicAssociations(userId: string): Promise<UserClinicAssociation[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -594,6 +611,85 @@ export class DatabaseStorage implements IStorage {
       console.error("Error bulk updating vaccinations:", error);
       return false;
     }
+  }
+
+  // Landing page branding
+  async getLandingPageBranding(): Promise<LandingPageBranding | undefined> {
+    const [branding] = await db.select().from(landingPageBranding).limit(1);
+    return branding;
+  }
+
+  async updateLandingPageBranding(brandingData: InsertLandingPageBranding): Promise<LandingPageBranding | undefined> {
+    const existing = await this.getLandingPageBranding();
+    
+    if (existing) {
+      const [updated] = await db
+        .update(landingPageBranding)
+        .set({ ...brandingData, updatedAt: new Date() })
+        .where(eq(landingPageBranding.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(landingPageBranding)
+        .values(brandingData)
+        .returning();
+      return created;
+    }
+  }
+
+  // Multi-clinic support
+  async getClinicByName(name: string): Promise<Clinic | undefined> {
+    const [clinic] = await db
+      .select()
+      .from(clinics)
+      .where(eq(clinics.name, name))
+      .limit(1);
+    return clinic;
+  }
+
+  async getUserClinics(userId: string): Promise<Clinic[]> {
+    const associations = await db
+      .select()
+      .from(userClinicAssociation)
+      .where(eq(userClinicAssociation.userId, userId));
+    
+    const clinicList: Clinic[] = [];
+    for (const assoc of associations) {
+      const clinic = await db
+        .select()
+        .from(clinics)
+        .where(eq(clinics.id, assoc.clinicId));
+      if (clinic.length > 0) {
+        clinicList.push(clinic[0]);
+      }
+    }
+    return clinicList;
+  }
+
+  async addUserToClinic(userId: string, clinicId: string, role: string = "admin"): Promise<UserClinicAssociation> {
+    const [assoc] = await db
+      .insert(userClinicAssociation)
+      .values({ userId, clinicId, role })
+      .returning();
+    return assoc;
+  }
+
+  async removeUserFromClinic(userId: string, clinicId: string): Promise<boolean> {
+    await db
+      .delete(userClinicAssociation)
+      .where(and(
+        eq(userClinicAssociation.userId, userId),
+        eq(userClinicAssociation.clinicId, clinicId)
+      ));
+    return true;
+  }
+
+  async getUserClinicAssociations(userId: string): Promise<UserClinicAssociation[]> {
+    return await db
+      .select()
+      .from(userClinicAssociation)
+      .where(eq(userClinicAssociation.userId, userId));
   }
 }
 

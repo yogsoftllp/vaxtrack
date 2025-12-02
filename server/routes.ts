@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { notificationService } from "./notificationService";
 import { getScheduleForCountry } from "@shared/vaccinationData";
-import { insertChildSchema, insertVaccinationRecordSchema, pushSubscriptions } from "@shared/schema";
+import { insertChildSchema, insertVaccinationRecordSchema, pushSubscriptions, insertLandingPageBrandingSchema } from "@shared/schema";
 import { db } from "./db";
 import { z } from "zod";
 
@@ -513,6 +513,90 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error bulk updating vaccinations:", error);
       res.status(500).json({ message: "Failed to bulk update vaccinations" });
+    }
+  });
+
+  // Landing page branding (Superadmin)
+  app.get('/api/public/landing-branding', async (req: any, res) => {
+    try {
+      const branding = await storage.getLandingPageBranding();
+      res.json(branding || {});
+    } catch (error) {
+      console.error("Error fetching landing branding:", error);
+      res.status(500).json({ message: "Failed to fetch branding" });
+    }
+  });
+
+  app.post('/api/admin/landing-branding', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (user?.role !== "superadmin") {
+        return res.status(403).json({ message: "Only superadmin can customize landing page" });
+      }
+
+      const branding = await storage.updateLandingPageBranding(req.body);
+      res.json(branding);
+    } catch (error) {
+      console.error("Error updating landing branding:", error);
+      res.status(500).json({ message: "Failed to update branding" });
+    }
+  });
+
+  // Clinic lookup by name
+  app.get('/api/clinics/search/:name', async (req: any, res) => {
+    try {
+      const { name } = req.params;
+      const clinic = await storage.getClinicByName(name);
+      if (!clinic) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+      res.json(clinic);
+    } catch (error) {
+      console.error("Error searching clinic:", error);
+      res.status(500).json({ message: "Failed to search clinic" });
+    }
+  });
+
+  app.get('/api/clinics/branding/:clinicId', async (req: any, res) => {
+    try {
+      const { clinicId } = req.params;
+      const branding = await storage.getClinicBranding(clinicId);
+      res.json(branding || {});
+    } catch (error) {
+      console.error("Error fetching clinic branding:", error);
+      res.status(500).json({ message: "Failed to fetch branding" });
+    }
+  });
+
+  // Multi-clinic support
+  app.get('/api/user/clinics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const clinics = await storage.getUserClinics(userId);
+      res.json(clinics);
+    } catch (error) {
+      console.error("Error fetching user clinics:", error);
+      res.status(500).json({ message: "Failed to fetch clinics" });
+    }
+  });
+
+  app.post('/api/user/clinics/:clinicId/join', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { clinicId } = req.params;
+      const clinic = await storage.getClinicForUser(userId);
+
+      // Verify clinic exists
+      const targetClinic = await db.select().from(clinics).where(eq(clinics.id, clinicId)).limit(1);
+      if (targetClinic.length === 0) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+
+      const assoc = await storage.addUserToClinic(userId, clinicId, "admin");
+      res.json(assoc);
+    } catch (error) {
+      console.error("Error joining clinic:", error);
+      res.status(500).json({ message: "Failed to join clinic" });
     }
   });
 
