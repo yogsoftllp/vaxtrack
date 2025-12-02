@@ -31,14 +31,19 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  phone: varchar("phone").unique(),
   role: varchar("role", { enum: ["parent", "clinic", "admin", "superadmin"] }).default("parent").notNull(),
   subscriptionTier: varchar("subscription_tier", { enum: ["free", "family", "clinic"] }).default("free").notNull(),
+  authProvider: varchar("auth_provider", { enum: ["google", "phone", "whatsapp", "replit"] }).default("replit"),
   referralCode: varchar("referral_code").unique(),
   referredById: varchar("referred_by_id").references(() => users.id, { onDelete: "set null" }),
   successfulReferrals: integer("successful_referrals").default(0),
   country: varchar("country"),
   city: varchar("city"),
-  phone: varchar("phone"),
+  clinicVerificationStatus: varchar("clinic_verification_status", { enum: ["pending", "approved", "rejected"] }).default("pending"),
+  clinicVerificationNotes: text("clinic_verification_notes"),
+  clinicVerifiedBy: varchar("clinic_verified_by").references(() => users.id, { onDelete: "set null" }),
+  clinicVerifiedAt: timestamp("clinic_verified_at"),
   notificationPreferences: jsonb("notification_preferences").$type<{
     sms: boolean;
     push: boolean;
@@ -308,6 +313,16 @@ export const referrals = pgTable("referrals", {
   status: varchar("status", { enum: ["pending", "completed"] }).default("pending").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   completedAt: timestamp("completed_at"),
+});
+
+// OTP storage for phone authentication
+export const phoneOtps = pgTable("phone_otps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  phone: varchar("phone").notNull(),
+  otp: varchar("otp").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  attempts: integer("attempts").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Relations
