@@ -55,8 +55,16 @@ export interface IStorage {
   // Notification operations
   getNotifications(userId: string): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
+  updateNotification(id: string, notification: Partial<InsertNotification>): Promise<Notification | undefined>;
   markNotificationRead(id: string): Promise<boolean>;
   markAllNotificationsRead(userId: string): Promise<boolean>;
+
+  // Clinic operations
+  getClinicForUser(userId: string): Promise<any | undefined>;
+  getClinicPatients(clinicId: string): Promise<any[]>;
+  getClinicStats(clinicId: string): Promise<any>;
+  getClinicAppointmentsToday(clinicId: string): Promise<any[]>;
+  getClinicalAnalytics(clinicId: string, days?: number): Promise<any>;
   
   // Dashboard stats
   getDashboardStats(userId: string): Promise<{
@@ -251,6 +259,177 @@ export class DatabaseStorage implements IStorage {
   async markAllNotificationsRead(userId: string): Promise<boolean> {
     await db.update(notifications).set({ read: true }).where(eq(notifications.userId, userId));
     return true;
+  }
+
+  async updateNotification(id: string, notification: Partial<InsertNotification>): Promise<Notification | undefined> {
+    const [updated] = await db
+      .update(notifications)
+      .set(notification)
+      .where(eq(notifications.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Clinic operations
+  async getClinicForUser(userId: string): Promise<any | undefined> {
+    const clinic = await db.query.clinics.findFirst({
+      where: eq(clinics.userId, userId),
+    });
+    return clinic;
+  }
+
+  async getClinicPatients(clinicId: string): Promise<any[]> {
+    // Get all appointments for this clinic's patients
+    const clinicAppointments = await db
+      .select({
+        childId: appointments.childId,
+        clinicId: appointments.clinicId,
+      })
+      .from(appointments)
+      .where(eq(appointments.clinicId, clinicId));
+
+    const childIds = [...new Set(clinicAppointments.map(a => a.childId))];
+    if (childIds.length === 0) return [];
+
+    const patientData: any[] = [];
+    for (const childId of childIds) {
+      const child = await this.getChild(childId);
+      const user = child ? await this.getUser(child.userId) : null;
+      const records = await this.getVaccinationRecords(childId);
+      
+      const today = new Date().toISOString().split('T')[0];
+      const nextUncompletedRecord = records.find(
+        r => !r.administeredDate && new Date(r.scheduledDate) >= new Date(today)
+      );
+
+      patientData.push({
+        id: child?.id,
+        childName: child?.firstName,
+        parentName: user?.firstName,
+        lastVisit: records.filter(r => r.administeredDate).sort((a, b) => 
+          new Date(b.administeredDate!).getTime() - new Date(a.administeredDate!).getTime()
+        )[0]?.administeredDate || "Never",
+        nextVaccine: nextUncompletedRecord?.vaccineName || "None",
+        nextVaccineDate: nextUncompletedRecord?.scheduledDate || "N/A",
+        status: nextUncompletedRecord
+          ? new Date(nextUncompletedRecord.scheduledDate) < new Date(today)
+            ? "overdue"
+            : new Date(nextUncompletedRecord.scheduledDate) <= new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000)
+            ? "due_soon"
+            : "up_to_date"
+          : "up_to_date",
+      });
+    }
+
+    return patientData;
+  }
+
+  async getClinicStats(clinicId: string): Promise<any> {
+    const clinic = await db.query.clinics.findFirst({
+      where: eq(clinics.id, clinicId),
+    });
+
+    if (!clinic) return { totalPatients: 0, todayAppointments: 0, overdueVaccines: 0, completionRate: 0 };
+
+    const patients = await this.getClinicPatients(clinicId);
+    const today = new Date().toISOString().split('T')[0];
+
+    const todayAppointments = await db
+      .select()
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.clinicId, clinicId),
+          eq(sql`DATE(scheduled_date_time)`, today)
+        )
+      );
+
+    const overdueCount = patients.filter(p => p.status === "overdue").length;
+    const completionRate = patients.length > 0
+      ? Math.round(((patients.length - overdueCount) / patients.length) * 100)
+      : 0;
+
+    return {
+      totalPatients: patients.length,
+      todayAppointments: todayAppointments.length,
+      overdueVaccines: overdueCount,
+      completionRate,
+    };
+  }
+
+  async getClinicAppointmentsToday(clinicId: string): Promise<any[]> {
+    const today = new Date().toISOString().split('T')[0];
+
+    const appointmentsData = await db
+      .select({
+        appointmentId: appointments.id,
+        scheduledDateTime: appointments.scheduledDateTime,
+        status: appointments.status,
+        childId: appointments.childId,
+        vaccinationRecordId: appointments.vaccinationRecordId,
+      })
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.clinicId, clinicId),
+          eq(sql`DATE(scheduled_date_time)`, today)
+        )
+      );
+
+    const result: any[] = [];
+    for (const appt of appointmentsData) {
+      const child = await this.getChild(appt.childId);
+      const user = child ? await this.getUser(child.userId) : null;
+      const record = appt.vaccinationRecordId ? await this.getVaccinationRecordById(appt.vaccinationRecordId) : null;
+
+      result.push({
+        id: appt.appointmentId,
+        time: new Date(appt.scheduledDateTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+        childName: child?.firstName || "Unknown",
+        parentName: user?.firstName || "Unknown",
+        vaccine: record?.vaccineName || "General",
+        status: appt.status,
+      });
+    }
+
+    return result.sort((a, b) => a.time.localeCompare(b.time));
+  }
+
+  async getClinicalAnalytics(clinicId: string, days: number = 90): Promise<any> {
+    const clinic = await db.query.clinics.findFirst({
+      where: eq(clinics.id, clinicId),
+    });
+
+    if (!clinic) return { vaccinationsByType: {}, weeklyTrend: [], coverage: 0 };
+
+    const patients = await this.getClinicPatients(clinicId);
+    const allRecords: any[] = [];
+
+    for (const patient of patients) {
+      const records = await db
+        .select()
+        .from(vaccinationRecords)
+        .where(eq(vaccinationRecords.childId, patient.id));
+      allRecords.push(...records);
+    }
+
+    // Group vaccines by type
+    const vaccinationsByType: { [key: string]: number } = {};
+    allRecords.forEach(r => {
+      vaccinationsByType[r.vaccineName] = (vaccinationsByType[r.vaccineName] || 0) + 1;
+    });
+
+    // Calculate coverage
+    const completedCount = allRecords.filter(r => r.administeredDate).length;
+    const coverage = allRecords.length > 0 ? Math.round((completedCount / allRecords.length) * 100) : 0;
+
+    return {
+      vaccinationsByType,
+      coverage,
+      totalVaccinations: allRecords.length,
+      totalCompleted: completedCount,
+      totalPending: allRecords.length - completedCount,
+    };
   }
 
   // Dashboard stats

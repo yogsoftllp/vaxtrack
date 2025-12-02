@@ -4,7 +4,8 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { notificationService } from "./notificationService";
 import { getScheduleForCountry } from "@shared/vaccinationData";
-import { insertChildSchema, insertVaccinationRecordSchema } from "@shared/schema";
+import { insertChildSchema, insertVaccinationRecordSchema, pushSubscriptions } from "@shared/schema";
+import { db } from "./db";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -297,16 +298,18 @@ export async function registerRoutes(
     }
   });
 
-  // Clinic routes (placeholder for clinic users)
+  // Clinic routes - Real data from database
   app.get('/api/clinic/stats', isAuthenticated, async (req: any, res) => {
     try {
-      // Placeholder clinic stats
-      res.json({
-        totalPatients: 0,
-        todayAppointments: 0,
-        overdueVaccines: 0,
-        completionRate: 0,
-      });
+      const userId = req.user.claims.sub;
+      const clinic = await storage.getClinicForUser(userId);
+      
+      if (!clinic) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+
+      const stats = await storage.getClinicStats(clinic.id);
+      res.json(stats);
     } catch (error) {
       console.error("Error fetching clinic stats:", error);
       res.status(500).json({ message: "Failed to fetch clinic stats" });
@@ -315,8 +318,15 @@ export async function registerRoutes(
 
   app.get('/api/clinic/patients', isAuthenticated, async (req: any, res) => {
     try {
-      // Placeholder patients list
-      res.json([]);
+      const userId = req.user.claims.sub;
+      const clinic = await storage.getClinicForUser(userId);
+      
+      if (!clinic) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+
+      const patients = await storage.getClinicPatients(clinic.id);
+      res.json(patients);
     } catch (error) {
       console.error("Error fetching patients:", error);
       res.status(500).json({ message: "Failed to fetch patients" });
@@ -325,11 +335,80 @@ export async function registerRoutes(
 
   app.get('/api/clinic/appointments/today', isAuthenticated, async (req: any, res) => {
     try {
-      // Placeholder appointments
-      res.json([]);
+      const userId = req.user.claims.sub;
+      const clinic = await storage.getClinicForUser(userId);
+      
+      if (!clinic) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+
+      const appointments = await storage.getClinicAppointmentsToday(clinic.id);
+      res.json(appointments);
     } catch (error) {
       console.error("Error fetching appointments:", error);
       res.status(500).json({ message: "Failed to fetch appointments" });
+    }
+  });
+
+  // Clinic analytics
+  app.get('/api/clinic/analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const clinic = await storage.getClinicForUser(userId);
+      
+      if (!clinic) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+
+      const analytics = await storage.getClinicalAnalytics(clinic.id);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // Web Push Notifications
+  app.post('/api/push/subscribe', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { endpoint, keys } = req.body;
+
+      if (!endpoint || !keys) {
+        return res.status(400).json({ message: "Invalid subscription data" });
+      }
+
+      // Store push subscription
+      const subscription = await db.insert(pushSubscriptions).values({
+        userId,
+        endpoint,
+        keys: JSON.stringify(keys),
+      }).returning();
+
+      res.json({ success: true, subscription: subscription[0] });
+    } catch (error) {
+      console.error("Error subscribing to push:", error);
+      res.status(500).json({ message: "Failed to subscribe to push" });
+    }
+  });
+
+  app.post('/api/push/send', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { title, message } = req.body;
+
+      // Create notification (clients will pick it up via polling or WebSocket)
+      const notification = await storage.createNotification({
+        userId,
+        type: "system",
+        title,
+        message,
+      });
+
+      res.json(notification);
+    } catch (error) {
+      console.error("Error sending push:", error);
+      res.status(500).json({ message: "Failed to send push" });
     }
   });
 

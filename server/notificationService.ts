@@ -1,11 +1,27 @@
 import twilio from "twilio";
 import { storage } from "./storage";
+import nodemailer from "nodemailer";
 
 const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null;
 
 const TWILIO_PHONE = process.env.TWILIO_PHONE_NUMBER || "";
+
+// Setup email transporter (will use environment variables for SMTP config)
+const emailTransporter = process.env.SMTP_HOST
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || "587"),
+      secure: process.env.SMTP_SECURE === "true",
+      auth: process.env.SMTP_USER && process.env.SMTP_PASS
+        ? {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          }
+        : undefined,
+    })
+  : null;
 
 export interface NotificationPayload {
   userId: string;
@@ -60,11 +76,35 @@ export class NotificationService {
   }
 
   /**
+   * Send email notification
+   */
+  async sendEmail(email: string, subject: string, message: string): Promise<boolean> {
+    if (!emailTransporter) {
+      console.log("Email not configured. Would send to:", email, subject);
+      return false;
+    }
+
+    try {
+      await emailTransporter.sendMail({
+        from: process.env.SMTP_FROM || "noreply@vaxtrack.com",
+        to: email,
+        subject: `VaxTrack: ${subject}`,
+        html: `<p>${message}</p>`,
+      });
+      console.log("Email sent to:", email);
+      return true;
+    } catch (error) {
+      console.error("Failed to send email:", error);
+      return false;
+    }
+  }
+
+  /**
    * Send in-app notification
    */
   async sendInAppNotification(payload: NotificationPayload): Promise<boolean> {
     try {
-      await storage.createNotification({
+      const notification = await storage.createNotification({
         userId: payload.userId,
         type: payload.type,
         title: payload.title,
@@ -75,6 +115,7 @@ export class NotificationService {
       if (payload.phoneNumber) {
         const smsMessage = `VaxTrack: ${payload.title} - ${payload.message}`;
         await this.sendSMS(payload.phoneNumber, smsMessage);
+        await storage.updateNotification(notification.id, { sentViaSms: true });
       }
 
       return true;
@@ -127,6 +168,38 @@ export class NotificationService {
       message,
       phoneNumber,
     });
+  }
+
+  /**
+   * Send appointment confirmation
+   */
+  async sendAppointmentConfirmation(
+    userId: string,
+    email: string | undefined,
+    childName: string,
+    vaccineName: string,
+    appointmentDate: string,
+    clinicName: string
+  ): Promise<boolean> {
+    const title = `Appointment confirmed for ${childName}`;
+    const message = `Your appointment for ${vaccineName} is confirmed on ${appointmentDate} at ${clinicName}.`;
+
+    const inAppSent = await this.sendInAppNotification({
+      userId,
+      type: "appointment",
+      title,
+      message,
+    });
+
+    if (email) {
+      await this.sendEmail(
+        email,
+        title,
+        `${message} Please arrive 10 minutes early.`
+      );
+    }
+
+    return inAppSent;
   }
 }
 
